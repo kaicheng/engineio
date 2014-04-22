@@ -8,6 +8,7 @@ import (
 
 type EncodeCallback func(data []byte)
 type DecodeCallback func(pkt Packet)
+type DecodePayloadCallback func(pkt Packet, index, total int)
 
 var errPkt = Packet{Type: "error", Data: []byte("parser error")}
 
@@ -72,17 +73,73 @@ func DecodeBase64Packet(data []byte) Packet {
 }
 
 func EncodePayload(pkts []*Packet, supportsBinary bool, callback EncodeCallback) {
-	panic("not implemented")
+	if supportsBinary {
+		EncodePayloadAsBinary(pkts, callback)
+		return
+	}
+
+	if len(pkts) == 0 {
+		callback([]byte("0:"))
+		return
+	}
+
+	buf := new(bytes.Buffer)
+	estLen := 0
+	for _, pkt := range pkts {
+		// sample encoded: 102:bxmessage
+		// message is in base 64
+		estLen += 6 + len(pkt.Data)*2
+	}
+	buf.Grow(estLen)
+	for _, pkt := range pkts {
+		EncodePacket(pkt, supportsBinary, func(data []byte) {
+			buf.Write([]byte(strconv.FormatInt(int64(len(data)), 10)))
+			buf.WriteByte(':')
+			buf.Write(data)
+		})
+	}
+	callback(buf.Next(buf.Len()))
 }
 
-func DecodePayload(data []byte, callback DecodeCallback) {
-	panic("not implemented")
+func DecodePayload(data []byte, callback DecodePayloadCallback) {
+	if len(data) == 0 {
+		callback(errPkt, 0, 1)
+		return
+	}
+	if int(data[0]) < 0x20 {
+		DecodePayloadAsBinary(data, callback)
+		return
+	}
+
+	for base := 0; base < len(data); {
+		work := data[base:]
+		colon := bytes.IndexByte(work, ':')
+		if colon < 0 {
+			callback(errPkt, 0, 1)
+			return
+		}
+		length64, err := strconv.ParseInt(string(work[:colon]), 10, 32)
+		length := int(length64)
+		if err != nil || colon+length >= len(work) {
+			callback(errPkt, 0, 1)
+			return
+		}
+		base += colon + length + 1
+		if length > 0 {
+			pkt := DecodePacket(work[colon+1 : colon+1+length])
+			if pkt.Type == errPkt.Type && bytes.Equal(pkt.Data, errPkt.Data) {
+				callback(errPkt, 0, 1)
+				return
+			}
+			callback(pkt, base-1, len(data))
+		}
+	}
 }
 
 func EncodePayloadAsBinary(pkts []*Packet, callback EncodeCallback) {
 	panic("not implemented")
 }
 
-func DecodePayloadAsBinary(data []byte, callback DecodeCallback) {
+func DecodePayloadAsBinary(data []byte, callback DecodePayloadCallback) {
 	panic("not implemented")
 }
