@@ -5,7 +5,10 @@ import (
 	"testing"
 )
 
-var encode = EncodePacket
+func encode(pkt *Packet, callback EncodeCallback) {
+	EncodePacket(pkt, false, callback)
+}
+
 var decode = DecodePacket
 
 func packetEqual(a, b *Packet) bool {
