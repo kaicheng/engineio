@@ -10,17 +10,17 @@ const (
 	Noop
 )
 
-var Packets = map[string]byte {
-	"open" : Open,
-	"close" : Close,
-	"ping" : Ping,
-	"pong" : Pong,
-	"message" : Message,
-	"upgrade" : Upgrade,
-	"noop" : Noop,
+var Packets = map[string]byte{
+	"open":    Open,
+	"close":   Close,
+	"ping":    Ping,
+	"pong":    Pong,
+	"message": Message,
+	"upgrade": Upgrade,
+	"noop":    Noop,
 }
 
-var PacketsList = []string {
+var PacketsList = []string{
 	"open",
 	"close",
 	"ping",

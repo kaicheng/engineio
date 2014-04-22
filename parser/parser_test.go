@@ -13,11 +13,11 @@ func packetEqual(a, b *Packet) bool {
 }
 
 func TestEncode(t *testing.T) {
-	encode(&Packet{Type:"message", Data:[]byte("test")}, nil)
+	encode(&Packet{Type: "message", Data: []byte("test")}, nil)
 }
 
 func TestEncodeDecode(t *testing.T) {
-	pkt := Packet{Type:"message", Data:[]byte("test")}
+	pkt := Packet{Type: "message", Data: []byte("test")}
 	encode(&pkt, func(data []byte) {
 		decPkt := decode(data)
 		if !packetEqual(&pkt, &decPkt) {
@@ -27,7 +27,7 @@ func TestEncodeDecode(t *testing.T) {
 }
 
 func TestDecodeOpen(t *testing.T) {
-	pkt := Packet{Type:"open", Data:[]byte("{\"some\":\"json\"}")}
+	pkt := Packet{Type: "open", Data: []byte("{\"some\":\"json\"}")}
 	encode(&pkt, func(data []byte) {
 		decPkt := decode(data)
 		if !packetEqual(&pkt, &decPkt) {
@@ -37,7 +37,7 @@ func TestDecodeOpen(t *testing.T) {
 }
 
 func TestDecodeClose(t *testing.T) {
-	pkt := Packet{Type:"close"}
+	pkt := Packet{Type: "close"}
 	encode(&pkt, func(data []byte) {
 		decPkt := decode(data)
 		if !packetEqual(&pkt, &decPkt) {
@@ -47,7 +47,7 @@ func TestDecodeClose(t *testing.T) {
 }
 
 func TestDecodePing(t *testing.T) {
-	pkt := Packet{Type:"ping", Data:[]byte("1")}
+	pkt := Packet{Type: "ping", Data: []byte("1")}
 	encode(&pkt, func(data []byte) {
 		decPkt := decode(data)
 		if !packetEqual(&pkt, &decPkt) {
@@ -57,7 +57,7 @@ func TestDecodePing(t *testing.T) {
 }
 
 func TestDecodePong(t *testing.T) {
-	pkt := Packet{Type:"pong", Data:[]byte("1")}
+	pkt := Packet{Type: "pong", Data: []byte("1")}
 	encode(&pkt, func(data []byte) {
 		decPkt := decode(data)
 		if !packetEqual(&pkt, &decPkt) {
@@ -67,7 +67,7 @@ func TestDecodePong(t *testing.T) {
 }
 
 func TestDecodeMessage(t *testing.T) {
-	pkt := Packet{Type:"message", Data:[]byte("aaa")}
+	pkt := Packet{Type: "message", Data: []byte("aaa")}
 	encode(&pkt, func(data []byte) {
 		decPkt := decode(data)
 		if !packetEqual(&pkt, &decPkt) {
@@ -77,7 +77,7 @@ func TestDecodeMessage(t *testing.T) {
 }
 
 func TestDecodeUpgrade(t *testing.T) {
-	pkt := Packet{Type:"upgrade"}
+	pkt := Packet{Type: "upgrade"}
 	encode(&pkt, func(data []byte) {
 		decPkt := decode(data)
 		if !packetEqual(&pkt, &decPkt) {
@@ -87,7 +87,7 @@ func TestDecodeUpgrade(t *testing.T) {
 }
 
 func TestDecodeErrorHandling(t *testing.T) {
-	errPkg := Packet{Type:"error", Data:[]byte("parser error")}
+	errPkg := Packet{Type: "error", Data: []byte("parser error")}
 	pkt1 := decode([]byte(":::"))
 	if !packetEqual(&errPkg, &pkt1) {
 		t.Error("Decode err: ", "bad format")
