@@ -170,6 +170,48 @@ func EncodePayloadAsBinary(pkts []*Packet, callback EncodeCallback) {
 	callback(buf.Next(buf.Len()))
 }
 
+func getInt(data []byte) (res int) {
+	if len(data) > 10 {
+		return -1
+	}
+	res = 0
+	for i := 0; i < len(data); i++ {
+		res = res * 10
+		res += int(data[i])
+	}
+	return
+}
+
 func DecodePayloadAsBinary(data []byte, callback DecodePayloadCallback) {
-	panic("not implemented")
+	estTotal := bytes.Count(data, []byte{255})
+	buf := make([][]byte, estTotal)
+	total := 0
+	base := 0
+	i := 0
+	for base < len(data) {
+		work := data[base+1:]
+		i255 := bytes.IndexByte(work, 255)
+		if i255 < 0 {
+			callback(errPkt, 0, 1)
+			return
+		}
+		length := getInt(work[:i255])
+		if length <= 0 {
+			callback(errPkt, 0, 1)
+			return
+		}
+		if i255+length+1 > len(work) {
+			callback(errPkt, 0, 1)
+			return
+		}
+		buf[i] = work[i255+1 : i255+1+length]
+		i++
+		total++
+		// 1 + number length + 1(255) + data length
+		base += 1 + i255 + 1 + length
+	}
+	for index := 0; index < total; index++ {
+		b := buf[index]
+		callback(DecodePacket(b), index, total)
+	}
 }

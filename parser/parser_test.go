@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bytes"
+	"crypto/rand"
 	"runtime/debug"
 	"testing"
 )
@@ -28,8 +29,8 @@ func packetEqual(a, b *Packet) bool {
 
 func expect(t *testing.T, res bool, msgs ...interface{}) {
 	if !res {
-		t.Error(msgs...)
 		debug.PrintStack()
+		t.Error(msgs...)
 	}
 }
 
@@ -177,5 +178,28 @@ func TestErrOnBadPacketFormat(t *testing.T) {
 func TestSimpleEncodePayloadAsBinary(t *testing.T) {
 	encPayloadB([]*Packet{&Packet{Type: "close", Data: []byte{2, 3}}}, func(data []byte) {
 		expect(t, bytes.Equal(data, []byte{1, 3, 255, 1, 2, 3}), "EncodePayloadAsBinary error")
+	})
+}
+
+func TestEncodeDecodePayloadAsBinary(t *testing.T) {
+	buf := make([]byte, 123)
+	rand.Read(buf)
+	pkt0 := Packet{Type: "message", Data: buf}
+	pkt1 := Packet{Type: "message", Data: []byte("hello")}
+	pkt2 := Packet{Type: "close"}
+	encPayloadB([]*Packet{&pkt0, &pkt1, &pkt2}, func(data []byte) {
+		decPayloadB(data, func(pkt Packet, index, total int) {
+			expect(t, total == 3, "Error in total")
+			switch index {
+			case 0:
+				expect(t, packetEqual(&pkt, &pkt0), "Decode err:", pkt, pkt0)
+			case 1:
+				expect(t, packetEqual(&pkt, &pkt1), "Decode err:", pkt, pkt1)
+			case 2:
+				expect(t, packetEqual(&pkt, &pkt2), "Decode err:", pkt, pkt2)
+			default:
+				t.Error("Error in index")
+			}
+		})
 	})
 }
