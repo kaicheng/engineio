@@ -137,7 +137,37 @@ func DecodePayload(data []byte, callback DecodePayloadCallback) {
 }
 
 func EncodePayloadAsBinary(pkts []*Packet, callback EncodeCallback) {
-	panic("not implemented")
+	if len(pkts) == 0 {
+		callback([]byte{})
+	}
+
+	buf := new(bytes.Buffer)
+	estLen := 0
+	for _, pkt := range pkts {
+		// Estimated length of buffer
+		// 1(binary indicator) + 4(length bytes) + 1(255) + len(pkt.Data)
+		estLen += 6 + len(pkt.Data)
+	}
+	buf.Grow(estLen)
+	for _, pkt := range pkts {
+		EncodePacket(pkt, true, func(data []byte) {
+			buf.WriteByte(1)
+			length := len(data)
+			bitsBuf := make([]byte, 10)
+			bits := 0
+			for length > 0 {
+				bitsBuf[bits] = byte(length % 10)
+				bits++
+				length = length / 10
+			}
+			for i := bits - 1; i >= 0; i-- {
+				buf.WriteByte(bitsBuf[i])
+			}
+			buf.WriteByte(255)
+			buf.Write(data)
+		})
+	}
+	callback(buf.Next(buf.Len()))
 }
 
 func DecodePayloadAsBinary(data []byte, callback DecodePayloadCallback) {

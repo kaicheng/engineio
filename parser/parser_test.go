@@ -18,6 +18,10 @@ func encPayload(pkts []*Packet, callback EncodeCallback) {
 
 var decPayload = DecodePayload
 
+var encPayloadB = EncodePayloadAsBinary
+
+var decPayloadB = DecodePayloadAsBinary
+
 func packetEqual(a, b *Packet) bool {
 	return (a.Type == b.Type) && bytes.Equal(a.Data, b.Data)
 }
@@ -167,5 +171,11 @@ func TestErrOnBadPacketFormat(t *testing.T) {
 	decPayload([]byte("1:a2:b"), func(pkt Packet, index, total int) {
 		expect(t, packetEqual(&pkt, &errPkt), "Should get error packet")
 		expect(t, index+1 == total, "Should be last")
+	})
+}
+
+func TestSimpleEncodePayloadAsBinary(t *testing.T) {
+	encPayloadB([]*Packet{&Packet{Type: "close", Data: []byte{2, 3}}}, func(data []byte) {
+		expect(t, bytes.Equal(data, []byte{1, 3, 255, 1, 2, 3}), "EncodePayloadAsBinary error")
 	})
 }
