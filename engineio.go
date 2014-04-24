@@ -9,7 +9,7 @@ var Protocol int = 1
 
 func getPath(opts Options) string {
 	if opts == nil || len(opts["path"].(string)) == 0 {
-		return "/engine.io"
+		return "/engine.io/"
 	}
 
 	path := opts["path"].(string)
@@ -17,18 +17,19 @@ func getPath(opts Options) string {
 }
 
 func Listen(port int, opts Options) *Server {
-	http.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
+	srvMux := http.NewServeMux()
+	srvMux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(501)
 		res.Write([]byte("Not Implemented."))
 	})
-	srv := Attach(opts)
-	go http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+	srv := Attach(srvMux, opts)
+	go http.ListenAndServe(fmt.Sprintf(":%d", port), srvMux)
 	return srv
 }
 
-func Attach(opts Options) *Server {
+func Attach(srvMux *http.ServeMux, opts Options) *Server {
 	srv := NewServer(opts)
 	path := getPath(opts)
-	http.Handle(path, srv)
+	srvMux.Handle(path, srv)
 	return srv
 }

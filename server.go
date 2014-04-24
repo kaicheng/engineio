@@ -78,7 +78,8 @@ func NewServer(opts Options) (srv *Server) {
 	srv.maxHttpBufferSize = valueOrDefault(opts, "maxHttpBufferSize", 100000000).(int)
 	srv.transports = valueOrDefault(opts, "transports", transportsArray).([]string)
 	srv.allowUpgrades = false // original default true
-	srv.allowRequest = opts["allowRequest"].(func(*Request, func(int, bool)))
+	srv.allowRequest = nil
+	// srv.allowRequest = opts["allowRequest"].(func(*Request, func(int, bool)))
 
 	return
 }
@@ -98,16 +99,16 @@ func (srv *Server) upgrades(transport string) []string {
 }
 
 func (srv *Server) verify(req *Request, upgrade bool, fn func(int, bool)) {
-	transport := req.query["transport"][0]
-	sid := req.query["sid"]
+	transport := req.query.Get("transport")
+	sid := req.query.Get("sid")
 
-	if _, ok := transports[transport]; !ok {
+	if trans, ok := transports[transport]; !ok || trans == nil {
 		fn(UNKNOWN_TRANSPORT, false)
 		return
 	}
 
-	if sid != nil && len(sid) > 0 {
-		client, ok := srv.Clients[sid[0]]
+	if len(sid) > 0 {
+		client, ok := srv.Clients[sid]
 		if !ok {
 			fn(UNKNOWN_SID, false)
 			return
