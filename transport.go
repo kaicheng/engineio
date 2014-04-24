@@ -1,25 +1,29 @@
-package trans
+package engineio
 
 import (
-    "github.com/kaicheng/goport/events"
+	"github.com/kaicheng/goport/engineio/parser"
+	"github.com/kaicheng/goport/events"
 )
 
 type Transport interface {
-    events.Emitter
+	events.EventEmitterInt
 
-    setReadyState(string)
-    readState() string
+	setReadyState(string)
+	readyState() string
 
-    onRequest(*Request)
-    close()
-    onError(string, error)
-    onPacket(*Packet)
-    onData(string)
-    onClose()
+	onRequest(*Request)
+	close(func())
+	onError(string, string)
+	onPacket(*parser.Packet)
+	onData([]byte)
+	onClose()
+
+	Name() string
+	setSid(sid string)
 }
 
-type transportCreator func(*Request)*Transport
+type transportCreator func(*Request) Transport
 
-transports := map[string]transportCreator {
-    "websocket" : NewWebsocketTransport,
+var transports = map[string]transportCreator{
+	"websocket": NewWebsocketTransport,
 }
