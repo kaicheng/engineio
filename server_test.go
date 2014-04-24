@@ -61,3 +61,40 @@ func TestTransportUnknown(t *testing.T) {
 	sres := getResponse(res)
 	t.Log(sres.code, sres.body)
 }
+
+// TODO: flash policy file tests.
+
+// TODO: upgrades tests.
+
+func TestPreserveListeners(t *testing.T) {
+	var listeners int = 0
+	port := getPort()
+	srvMux := http.NewServeMux()
+	srvMux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
+		listeners++
+		res.WriteHeader(200)
+		res.Write(nil)
+		listeners++
+	})
+	server := &http.Server{
+		Addr:           fmt.Sprintf(":%d", port),
+		Handler:        srvMux,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	Attach(server, nil)
+	go server.ListenAndServe()
+	sleep(1)
+	var res *http.Response
+	var sres *simpleResponse
+	res, _ = http.Get(fmt.Sprintf("http://localhost:%d/engine.io/default/", port))
+	sres = getResponse(res)
+	t.Log(sres.code, sres.body)
+	t.Log(listeners)
+	sleep(1)
+	res, _ = http.Get(fmt.Sprintf("http://localhost:%d/test", port))
+	sres = getResponse(res)
+	t.Log(sres.code, sres.body)
+	t.Log(listeners)
+}

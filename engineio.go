@@ -3,6 +3,7 @@ package engineio
 import (
 	"fmt"
 	"net/http"
+	"time"
 )
 
 var Protocol int = 1
@@ -22,14 +23,28 @@ func Listen(port int, opts Options) *Server {
 		res.WriteHeader(501)
 		res.Write([]byte("Not Implemented."))
 	})
-	srv := Attach(srvMux, opts)
-	go http.ListenAndServe(fmt.Sprintf(":%d", port), srvMux)
+	server := &http.Server{
+		Addr:           fmt.Sprintf(":%d", port),
+		Handler:        srvMux,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	srv := Attach(server, opts)
+	go server.ListenAndServe()
 	return srv
 }
 
-func Attach(srvMux *http.ServeMux, opts Options) *Server {
+func Attach(server *http.Server, opts Options) *Server {
+	mux := http.NewServeMux()
 	srv := NewServer(opts)
 	path := getPath(opts)
-	srvMux.Handle(path, srv)
+	mux.Handle(path, srv)
+	if path != "/" {
+		mux.Handle("/", server.Handler)
+	}
+
+	server.Handler = mux
 	return srv
 }
