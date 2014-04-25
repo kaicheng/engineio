@@ -27,9 +27,14 @@ type Server struct {
 }
 
 type Request struct {
+	events.EventEmitter
+
 	httpReq *http.Request
 	query   url.Values
 	res     http.ResponseWriter
+
+	abort   func() // used by polling
+	cleanup func() // used by polling
 }
 
 var gi = 0
@@ -177,13 +182,13 @@ func (srv *Server) handshake(transportName string, req *Request) {
 	transport := transports[transportName](req)
 
 	if "polling" == transportName {
-		// transport.setMaxHttpBufferSize(srv.maxHttpBufferSize)
+		transport.setMaxHTTPBufferSize(srv.maxHttpBufferSize)
 	}
 
 	if getBool(req.query["b64"]) {
-		// transport.setSupportsBinary(false)
+		transport.setSupportsBinary(false)
 	} else {
-		// transport.setSupportsBinary(true)
+		transport.setSupportsBinary(true)
 	}
 
 	socket := newSocket(id, srv, transport, req)
