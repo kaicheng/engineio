@@ -98,3 +98,30 @@ func TestPreserveListeners(t *testing.T) {
 	t.Log(sres.code, sres.body)
 	t.Log(listeners)
 }
+
+func TestTransportNonexistent(t *testing.T) {
+	port := getPort()
+	Listen(port, nil)
+	sleep(1)
+	res, _ := http.Get(fmt.Sprintf("http://localhost:%d/engine.io/default/?transport=tobi", port))
+	sres := getResponse(res)
+	t.Log(sres.code, sres.body)
+}
+
+func TestTransportConstructior(t *testing.T) {
+	port := getPort()
+	Listen(port, nil)
+	sleep(1)
+	res, _ := http.Get(fmt.Sprintf("http://localhost:%d/engine.io/default/?transport=constructor", port))
+	sres := getResponse(res)
+	t.Log(sres.code, sres.body)
+}
+
+func TestNonexistingSid(t *testing.T) {
+	port := getPort()
+	Listen(port, nil)
+	sleep(1)
+	res, _ := http.Get(fmt.Sprintf("http://localhost:%d/engine.io/default/?transport=polling&sid=test", port))
+	sres := getResponse(res)
+	t.Log(sres.code, sres.body)
+}
