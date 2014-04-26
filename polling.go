@@ -43,13 +43,13 @@ func (poll *Polling) InitPolling(req *Request) {
 }
 
 func (poll *Polling) onRequest(req *Request) {
-	res := req.res
 	switch req.httpReq.Method {
 	case "GET":
 		poll.onPollRequest(req)
 	case "POST":
 		poll.onDataRequest(req)
 	default:
+		res := req.res
 		res.WriteHeader(500)
 		res.Write(nil)
 	}
@@ -70,12 +70,11 @@ func (poll *Polling) onPollRequest(req *Request) {
 
 	onClose := func() { poll.onError("poll connection closed prematurely", "") }
 
-	// FIXME:
-	// req.cleanup = func() {
-	//	   req.RemoveListener("close", onClose)
-	//     poll.req = nil
-	//     poll.res = nil
-	// }
+	req.cleanup = func() {
+		req.RemoveListener("close", onClose)
+		poll.req = nil
+		poll.res = nil
+	}
 	req.On("close", onClose)
 
 	poll.pWritable = true
@@ -142,13 +141,6 @@ func (poll *Polling) onDataRequest(req *Request) {
 	req.On("close", bag.onClose)
 	req.On("data", bag.onData)
 	req.On("end", bag.onEnd)
-
-	/*
-		isBinary := req.query.Get("content-type") == "application/octet/stream"
-		if !isBinary {
-			req.setEncoding("utf8")
-		}
-	*/
 }
 
 func (poll *Polling) onData(data []byte) {

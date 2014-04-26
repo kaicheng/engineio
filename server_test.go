@@ -125,3 +125,23 @@ func TestNonexistingSid(t *testing.T) {
 	sres := getResponse(res)
 	t.Log(sres.code, sres.body)
 }
+
+func TestHandshake(t *testing.T) {
+	port := getPort()
+	Listen(port, nil)
+	sleep(1)
+	res, _ := http.Get(fmt.Sprintf("http://localhost:%d/engine.io/default/?transport=polling&b64=1", port))
+	sres := getResponse(res)
+	t.Log(sres.code, res.Header, sres.body)
+}
+
+func TestCustonCookie(t *testing.T) {
+	port := getPort()
+	Listen(port, Options{"cookie": "woot"})
+	sleep(1)
+	res, _ := http.Get(fmt.Sprintf("http://localhost:%d/engine.io/default/?transport=polling", port))
+	sres := getResponse(res)
+	t.Log(sres.code, res.Header, sres.body)
+}
+
+// FIXME: should not send the io cookie

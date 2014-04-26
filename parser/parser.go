@@ -3,6 +3,7 @@ package parser
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"strconv"
 )
 
@@ -14,7 +15,9 @@ var errPkt = Packet{Type: "error", Data: []byte("parser error")}
 
 func EncodePacket(pkt *Packet, supportsBinary bool, callback EncodeCallback) {
 	defer func() {
-		recover()
+		if err := recover(); err != nil {
+			fmt.Println(err)
+		}
 	}()
 
 	if !supportsBinary {

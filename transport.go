@@ -17,6 +17,7 @@ type Transport interface {
 	onPacket(*parser.Packet)
 	onData([]byte)
 	onClose()
+	send(pkts []*parser.Packet)
 
 	Name() string
 	setSid(sid string)
@@ -46,6 +47,7 @@ type TransportBase struct {
 }
 
 func (trans *TransportBase) initTransportBase(req *Request) {
+	trans.InitEventEmitter()
 	trans.transReadyState = "opening"
 	trans.doClose = func(func()) {}
 }

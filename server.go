@@ -2,10 +2,12 @@ package engineio
 
 import (
 	"fmt"
-	"github.com/kaicheng/goport/events"
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
+
+	"github.com/kaicheng/goport/events"
 )
 
 type Options map[string]interface{}
@@ -16,9 +18,10 @@ type Server struct {
 	Clients      map[string]*Socket
 	clientsCount int
 
-	pingTimeout       int
-	pingInterval      int
-	upgradeTimeout    int
+	pingTimeout    time.Duration
+	pingInterval   time.Duration
+	upgradeTimeout time.Duration
+
 	maxHttpBufferSize int
 	transports        []string
 	allowUpgrades     bool
@@ -77,14 +80,15 @@ func NewServer(opts Options) (srv *Server) {
 		i++
 	}
 
-	srv.pingTimeout = valueOrDefault(opts, "pingTimeout", 60000).(int)
-	srv.pingInterval = valueOrDefault(opts, "pingInterval", 25000).(int)
-	srv.upgradeTimeout = valueOrDefault(opts, "upgradeTimeout", 10000).(int)
+	srv.pingTimeout = (time.Duration(valueOrDefault(opts, "pingTimeout", 60000).(int)) * time.Millisecond)
+	srv.pingInterval = (time.Duration(valueOrDefault(opts, "pingInterval", 25000).(int)) * time.Millisecond)
+	srv.upgradeTimeout = (time.Duration(valueOrDefault(opts, "upgradeTimeout", 10000).(int)) * time.Millisecond)
+
 	srv.maxHttpBufferSize = valueOrDefault(opts, "maxHttpBufferSize", 100000000).(int)
 	srv.transports = valueOrDefault(opts, "transports", transportsArray).([]string)
 	srv.allowUpgrades = false // original default true
 	srv.allowRequest = nil
-	// srv.allowRequest = opts["allowRequest"].(func(*Request, func(int, bool)))
+	srv.cookie = valueOrDefault(opts, "cookie", "io").(string)
 
 	return
 }
@@ -126,7 +130,7 @@ func (srv *Server) verify(req *Request, upgrade bool, fn func(int, bool)) {
 			fn(BAD_HANDSHAKE_METHOD, false)
 			return
 		}
-		if srv.allowRequest != nil {
+		if srv.allowRequest == nil {
 			fn(0, true)
 			return
 		}
@@ -147,6 +151,7 @@ func sendErrorMessage(res http.ResponseWriter, code int) {
 
 func (srv *Server) ServeHTTP(res http.ResponseWriter, httpreq *http.Request) {
 	req := new(Request)
+	req.InitEventEmitter()
 	req.httpReq = httpreq
 	req.query = httpreq.URL.Query()
 	req.res = res
@@ -158,9 +163,9 @@ func (srv *Server) ServeHTTP(res http.ResponseWriter, httpreq *http.Request) {
 		}
 
 		if len(req.query["sid"]) > 0 {
-			srv.Clients[req.query["sid"][0]].transport.onRequest(req)
+			srv.Clients[req.query.Get("sid")].transport.onRequest(req)
 		} else {
-			srv.handshake(req.query["transport"][0], req)
+			srv.handshake(req.query.Get("transport"), req)
 		}
 	})
 }
@@ -173,8 +178,10 @@ func (srv *Server) Close() {
 
 func (srv *Server) handshake(transportName string, req *Request) {
 	defer func() {
-		recover()
-		sendErrorMessage(req.res, BAD_REQUEST)
+		if err := recover(); err != nil {
+			fmt.Println(err)
+			sendErrorMessage(req.res, BAD_REQUEST)
+		}
 	}()
 
 	id := generateId()
@@ -194,7 +201,6 @@ func (srv *Server) handshake(transportName string, req *Request) {
 	socket := newSocket(id, srv, transport, req)
 
 	if len(srv.cookie) > 0 {
-		//TODO(kaicheng): check if we should modify res.Header
 		transport.On("headers", func(header http.Header) {
 			header.Set("Set-Cookie", srv.cookie+"="+id)
 		})

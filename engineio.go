@@ -9,7 +9,7 @@ import (
 var Protocol int = 1
 
 func getPath(opts Options) string {
-	if opts == nil || len(opts["path"].(string)) == 0 {
+	if opts == nil || opts["path"] == nil || len(opts["path"].(string)) == 0 {
 		return "/engine.io/"
 	}
 
