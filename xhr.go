@@ -31,7 +31,7 @@ func (xhr *XHR) onRequest(req *Request) {
 		xhr.headers(req)
 		res.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		res.WriteHeader(200)
-		res.Write([]byte("TEST"))
+		res.Write(nil)
 	} else {
 		xhr.Polling.onRequest(req)
 	}
