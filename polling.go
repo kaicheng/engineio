@@ -1,6 +1,7 @@
 package engineio
 
 import (
+	"fmt"
 	"bytes"
 	"github.com/kaicheng/goport/engineio/parser"
 	"net/http"
@@ -161,6 +162,7 @@ func (poll *Polling) send(pkts []*parser.Packet) {
 	}
 
 	parser.EncodePayload(pkts, poll.supportsBinary, func(data []byte) {
+		fmt.Println("before poll.write", data)
 		poll.write(data)
 	})
 }

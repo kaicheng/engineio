@@ -20,14 +20,18 @@ func EncodePacket(pkt *Packet, supportsBinary bool, callback EncodeCallback) {
 		}
 	}()
 
-	if !supportsBinary {
+	if !supportsBinary && pkt.IsBin {
 		EncodeBase64Packet(pkt, callback)
 		return
 	}
 
 	buf := new(bytes.Buffer)
 	buf.Grow(1 + len(pkt.Data))
-	buf.WriteByte(Packets[pkt.Type])
+	if pkt.IsBin {
+		buf.WriteByte(Packets[pkt.Type])
+	} else {
+		buf.WriteByte(Packets[pkt.Type] + '0')
+	}
 	buf.Write(pkt.Data)
 	callback(buf.Next(buf.Len()))
 }

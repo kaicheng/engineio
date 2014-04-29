@@ -46,8 +46,10 @@ func newSocket(id string, srv *Server, transport Transport, req *Request) *Socke
 func (socket *Socket) onOpen() {
 	socket.readyState = "open"
 	socket.transport.setSid(socket.id)
-	socket.sendPacket("open", []byte(fmt.Sprintf("{\"sid\":\"%s\", \"upgrades\":\"%s\", \"pingInterval\":\"%s\", \"pingTimeout\":\"%s\",}",
-		socket.id, socket.getAvailableUpgrades(), socket.server.pingInterval, socket.server.pingTimeout)))
+	pingInterval := (int64)(socket.server.pingInterval / time.Millisecond)
+	pingTimeout := (int64)(socket.server.pingTimeout / time.Millisecond)
+	socket.sendPacket("open", []byte(fmt.Sprintf("{\"sid\":\"%s\",\"upgrades\":%s,\"pingInterval\":%d, \"pingTimeout\":%d}",
+		socket.id, socket.getAvailableUpgrades(), pingInterval, pingTimeout)))
 
 	socket.Emit("open")
 	socket.setPingTimeout()
@@ -60,7 +62,9 @@ func (socket *Socket) onClose(reason, desc string) {
 			socket.checkIntervalTimer.Stop()
 		}
 		socket.checkIntervalTimer = nil
-		socket.upgradeTimeoutTimer.Stop()
+		if socket.upgradeTimeoutTimer != nil {
+			socket.upgradeTimeoutTimer.Stop()
+		}
 
 		socket.clearTransport()
 		socket.readyState = "closed"
@@ -111,7 +115,9 @@ func (socket *Socket) setPingTimeout() {
 }
 
 func (socket *Socket) clearTransport() {
-	socket.checkIntervalTimer.Stop()
+	if socket.checkIntervalTimer != nil {
+		socket.checkIntervalTimer.Stop()
+	}
 	socket.pingTimeoutTimer.Stop()
 }
 

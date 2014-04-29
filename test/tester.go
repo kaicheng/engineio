@@ -14,10 +14,14 @@ func getOpts(arg string) map[string]interface{} {
 	var v map[string]interface{}
 	err := json.Unmarshal([]byte(arg), &v)
 	if err != nil {
-		var vv interface{}
-		err = json.Unmarshal([]byte(arg), &vv)
 		return nil
 	} else {
+		for k, val := range v {
+			switch val.(type) {
+			case float64:
+				v[k] = int(val.(float64))
+			}
+		}
 		return v
 	}
 }
@@ -40,12 +44,14 @@ func main() {
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
-	engineio.Attach(server, opts)
+	eio := engineio.Attach(server, opts)
 	
 	switch it {
+	case "on connection":
+		eio.On("connection", func (socket *engineio.Socket) {
+			fmt.Println("on connection", *socket)
+		})
 	case "default":
-			server.ListenAndServe()
-
 	default:
 		return
 	}
