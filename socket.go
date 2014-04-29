@@ -56,7 +56,9 @@ func (socket *Socket) onOpen() {
 func (socket *Socket) onClose(reason, desc string) {
 	if "closed" != socket.readyState {
 		socket.pingTimeoutTimer.Stop()
-		socket.checkIntervalTimer.Stop()
+		if socket.checkIntervalTimer != nil {
+			socket.checkIntervalTimer.Stop()
+		}
 		socket.checkIntervalTimer = nil
 		socket.upgradeTimeoutTimer.Stop()
 
