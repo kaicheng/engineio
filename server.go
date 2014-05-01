@@ -33,7 +33,7 @@ type Request struct {
 	events.EventEmitter
 
 	httpReq *http.Request
-	query   url.Values
+	Query   url.Values
 	res     http.ResponseWriter
 
 	abort   func() // used by polling
@@ -108,8 +108,8 @@ func (srv *Server) upgrades(transport string) []string {
 }
 
 func (srv *Server) verify(req *Request, upgrade bool, fn func(int, bool)) {
-	transport := req.query.Get("transport")
-	sid := req.query.Get("sid")
+	transport := req.Query.Get("transport")
+	sid := req.Query.Get("sid")
 
 	if trans, ok := transports[transport]; !ok || trans == nil {
 		fn(UNKNOWN_TRANSPORT, false)
@@ -153,7 +153,7 @@ func (srv *Server) ServeHTTP(res http.ResponseWriter, httpreq *http.Request) {
 	req := new(Request)
 	req.InitEventEmitter()
 	req.httpReq = httpreq
-	req.query = httpreq.URL.Query()
+	req.Query = httpreq.URL.Query()
 	req.res = res
 
 	srv.verify(req, false, func(err int, success bool) {
@@ -162,10 +162,10 @@ func (srv *Server) ServeHTTP(res http.ResponseWriter, httpreq *http.Request) {
 			return
 		}
 
-		if len(req.query["sid"]) > 0 {
-			srv.Clients[req.query.Get("sid")].transport.onRequest(req)
+		if len(req.Query["sid"]) > 0 {
+			srv.Clients[req.Query.Get("sid")].transport.onRequest(req)
 		} else {
-			srv.handshake(req.query.Get("transport"), req)
+			srv.handshake(req.Query.Get("transport"), req)
 		}
 	})
 }
@@ -192,7 +192,7 @@ func (srv *Server) handshake(transportName string, req *Request) {
 		transport.setMaxHTTPBufferSize(srv.maxHttpBufferSize)
 	}
 
-	if getBool(req.query["b64"]) {
+	if getBool(req.Query["b64"]) {
 		transport.setSupportsBinary(false)
 	} else {
 		transport.setSupportsBinary(true)
