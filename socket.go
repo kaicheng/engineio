@@ -15,7 +15,7 @@ type Socket struct {
 	server     *Server
 	upgraded   bool
 	readyState string
-	request    *Request
+	Request    *Request
 	transport  Transport
 
 	writeBuffer []*parser.Packet
@@ -33,7 +33,7 @@ func newSocket(id string, srv *Server, transport Transport, req *Request) *Socke
 	socket.server = srv
 	socket.upgraded = false
 	socket.readyState = "opening"
-	socket.request = req
+	socket.Request = req
 	socket.setTransport(transport)
 
 	// TODO: make capacity configurable

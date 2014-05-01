@@ -139,6 +139,7 @@ describe('server', function () {
     it('should open with polling by default', function (done) {
       var engine = listen("on connection", { allowUpgrades: false }, function (port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port));
+        done();
       });
     });
 
