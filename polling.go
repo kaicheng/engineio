@@ -1,7 +1,6 @@
 package engineio
 
 import (
-	"fmt"
 	"bytes"
 	"github.com/kaicheng/goport/engineio/parser"
 	"net/http"
@@ -30,6 +29,7 @@ func NewPollingTransport(req *Request) Transport {
 func (poll *Polling) InitPolling(req *Request) {
 	poll.initTransportBase(req)
 	poll.name = "polling"
+
 	poll.doClose = func(fn func()) {
 		if poll.dataReq != nil {
 			poll.dataReq.abort()
@@ -62,7 +62,6 @@ func (poll *Polling) onPollRequest(req *Request) {
 	if poll.req != nil {
 		poll.onError("overlap from client", "")
 		res.WriteHeader(500)
-		res.Write(nil)
 		return
 	}
 
@@ -99,7 +98,6 @@ func (poll *Polling) onDataRequest(req *Request) {
 	if poll.dataReq != nil {
 		poll.onError("data request overlap from client", "")
 		res.WriteHeader(500)
-		res.Write(nil)
 		return
 	}
 
@@ -109,9 +107,9 @@ func (poll *Polling) onDataRequest(req *Request) {
 	bag.onData = func(data []byte) {
 		if len(data)+chunks.Len() > poll.maxHTTPBufferSize {
 			chunks.Reset()
+			req.httpReq.Body.Close()
 		} else {
 			chunks.Write(data)
-			req.httpReq.Body.Close()
 		}
 	}
 
@@ -162,7 +160,6 @@ func (poll *Polling) send(pkts []*parser.Packet) {
 	}
 
 	parser.EncodePayload(pkts, poll.supportsBinary, func(data []byte) {
-		fmt.Println("before poll.write", data)
 		poll.write(data)
 	})
 }

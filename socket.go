@@ -16,9 +16,9 @@ type Socket struct {
 	upgraded   bool
 	readyState string
 	Request    *Request
-	transport  Transport
+	Transport  Transport
 
-	writeBuffer []*parser.Packet
+	WriteBuffer []*parser.Packet
 
 	checkIntervalTimer  *time.Timer
 	upgradeTimeoutTimer *time.Timer
@@ -37,7 +37,7 @@ func newSocket(id string, srv *Server, transport Transport, req *Request) *Socke
 	socket.setTransport(transport)
 
 	// TODO: make capacity configurable
-	socket.writeBuffer = make([]*parser.Packet, 10)[0:0]
+	socket.WriteBuffer = make([]*parser.Packet, 10)[0:0]
 
 	socket.onOpen()
 	return socket
@@ -45,7 +45,7 @@ func newSocket(id string, srv *Server, transport Transport, req *Request) *Socke
 
 func (socket *Socket) onOpen() {
 	socket.readyState = "open"
-	socket.transport.setSid(socket.id)
+	socket.Transport.setSid(socket.id)
 	pingInterval := (int64)(socket.server.pingInterval / time.Millisecond)
 	pingTimeout := (int64)(socket.server.pingTimeout / time.Millisecond)
 	socket.sendPacket("open", []byte(fmt.Sprintf("{\"sid\":\"%s\",\"upgrades\":%s,\"pingInterval\":%d, \"pingTimeout\":%d}",
@@ -69,7 +69,7 @@ func (socket *Socket) onClose(reason, desc string) {
 		socket.clearTransport()
 		socket.readyState = "closed"
 		socket.Emit("close", reason, desc)
-		socket.writeBuffer = socket.writeBuffer[0:0]
+		socket.WriteBuffer = socket.WriteBuffer[0:0]
 	}
 }
 
@@ -77,7 +77,7 @@ func (socket *Socket) sendPacket(strType string, data []byte) {
 	if "closing" != socket.readyState {
 		packet := &parser.Packet{Type: strType, Data: data}
 		socket.Emit("packetCreate", packet)
-		socket.writeBuffer = append(socket.writeBuffer, packet)
+		socket.WriteBuffer = append(socket.WriteBuffer, packet)
 		socket.flush()
 	}
 }
@@ -101,7 +101,7 @@ func (socket *Socket) onPacket(packet *parser.Packet) {
 	}
 }
 
-func (socket *Socket) onError(err string) {
+func (socket *Socket) OnError(err string) {
 	socket.onClose("transport error", err)
 }
 
@@ -124,21 +124,21 @@ func (socket *Socket) clearTransport() {
 func (socket *Socket) setupSendCallback() {
 }
 
-func (socket *Socket) send(data []byte) {
+func (socket *Socket) Send(data []byte) {
 	socket.sendPacket("message", data)
 }
 
-func (socket *Socket) write(data []byte) {
-	socket.send(data)
+func (socket *Socket) Write(data []byte) {
+	socket.Send(data)
 }
 
 func (socket *Socket) flush() {
-	if "closed" != socket.readyState && socket.transport.writable() && len(socket.writeBuffer) > 0 {
-		socket.Emit("flush", socket.writeBuffer)
-		socket.server.Emit("flush", socket.writeBuffer)
-		buf := socket.writeBuffer
-		socket.writeBuffer = make([]*parser.Packet, 10)[0:0]
-		socket.transport.send(buf)
+	if "closed" != socket.readyState && socket.Transport.writable() && len(socket.WriteBuffer) > 0 {
+		socket.Emit("flush", socket.WriteBuffer)
+		socket.server.Emit("flush", socket.WriteBuffer)
+		buf := socket.WriteBuffer
+		socket.WriteBuffer = make([]*parser.Packet, 10)[0:0]
+		socket.Transport.send(buf)
 		socket.Emit("drain")
 		socket.server.Emit("drain", socket)
 	}
@@ -149,18 +149,18 @@ func (socket *Socket) getAvailableUpgrades() []string {
 }
 
 func (socket *Socket) setTransport(transport Transport) {
-	socket.transport = transport
-	transport.Once("error", socket.onError)
+	socket.Transport = transport
+	transport.Once("error", socket.OnError)
 	transport.On("packet", socket.onPacket)
 	transport.On("drain", socket.flush)
 	transport.Once("close", func() { socket.onClose("transport close", "") })
 	socket.setupSendCallback()
 }
 
-func (socket *Socket) close() {
+func (socket *Socket) Close() {
 	if "open" == socket.readyState {
 		socket.readyState = "closing"
-		socket.transport.close(func() {
+		socket.Transport.close(func() {
 			socket.onClose("froced close", "")
 		})
 	}

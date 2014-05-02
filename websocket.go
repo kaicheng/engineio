@@ -40,7 +40,7 @@ func (trans *websocketTransport) send(packets []*parser.Packet) {
 }
 
 func (trans *websocketTransport) doClose(fn func()) {
-	trans.socket.close()
+	trans.socket.Close()
 	if fn != nil {
 		fn()
 	}

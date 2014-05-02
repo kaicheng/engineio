@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/kaicheng/goport/events"
+
+//	"runtime/debug"
 )
 
 type Options map[string]interface{}
@@ -122,7 +124,7 @@ func (srv *Server) verify(req *Request, upgrade bool, fn func(int, bool)) {
 			fn(UNKNOWN_SID, false)
 			return
 		}
-		if !upgrade && client.transport.Name() != transport {
+		if !upgrade && client.Transport.Name() != transport {
 			fn(BAD_REQUEST, false)
 		}
 	} else {
@@ -147,6 +149,10 @@ func sendErrorMessage(res http.ResponseWriter, code int) {
 	res.WriteHeader(400)
 	data := fmt.Sprintf("{\"code\":%d,\"message\":\"%s\"}", code, ErrorMessages[code])
 	res.Write([]byte(data))
+	/*
+	fmt.Printf("\x1b[33;1m[%d] %s.\x1b[0m\n", code, ErrorMessages[code])
+	debug.PrintStack()
+	*/
 }
 
 func (srv *Server) ServeHTTP(res http.ResponseWriter, httpreq *http.Request) {
@@ -163,7 +169,7 @@ func (srv *Server) ServeHTTP(res http.ResponseWriter, httpreq *http.Request) {
 		}
 
 		if len(req.Query["sid"]) > 0 {
-			srv.Clients[req.Query.Get("sid")].transport.onRequest(req)
+			srv.Clients[req.Query.Get("sid")].Transport.onRequest(req)
 		} else {
 			srv.handshake(req.Query.Get("transport"), req)
 		}
@@ -172,16 +178,18 @@ func (srv *Server) ServeHTTP(res http.ResponseWriter, httpreq *http.Request) {
 
 func (srv *Server) Close() {
 	for _, socket := range srv.Clients {
-		socket.close()
+		socket.Close()
 	}
 }
 
 func (srv *Server) handshake(transportName string, req *Request) {
 	defer func() {
+		/*
 		if err := recover(); err != nil {
 			fmt.Println(err)
 			sendErrorMessage(req.res, BAD_REQUEST)
 		}
+		*/
 	}()
 
 	id := generateId()
