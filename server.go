@@ -45,6 +45,7 @@ type Request struct {
 var gi = 0
 
 func generateId() string {
+	// FIXME: Need lock
 	gi++
 	return fmt.Sprintf("%d", gi)
 }
@@ -150,8 +151,8 @@ func sendErrorMessage(res http.ResponseWriter, code int) {
 	data := fmt.Sprintf("{\"code\":%d,\"message\":\"%s\"}", code, ErrorMessages[code])
 	res.Write([]byte(data))
 	/*
-	fmt.Printf("\x1b[33;1m[%d] %s.\x1b[0m\n", code, ErrorMessages[code])
-	debug.PrintStack()
+		fmt.Printf("\x1b[33;1m[%d] %s.\x1b[0m\n", code, ErrorMessages[code])
+		debug.PrintStack()
 	*/
 }
 
@@ -185,10 +186,10 @@ func (srv *Server) Close() {
 func (srv *Server) handshake(transportName string, req *Request) {
 	defer func() {
 		/*
-		if err := recover(); err != nil {
-			fmt.Println(err)
-			sendErrorMessage(req.res, BAD_REQUEST)
-		}
+			if err := recover(); err != nil {
+				fmt.Println(err)
+				sendErrorMessage(req.res, BAD_REQUEST)
+			}
 		*/
 	}()
 

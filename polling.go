@@ -4,20 +4,24 @@ import (
 	"bytes"
 	"github.com/kaicheng/goport/engineio/parser"
 	"net/http"
+	"sync"
+	"sync/atomic"
 )
 
 type Polling struct {
 	TransportBase
 
-	res               http.ResponseWriter
-	dataRes           http.ResponseWriter
-	dataReq           *Request
-	pWritable         bool
 	cleanup           func()
 	maxHTTPBufferSize int
 	shouldClose       func()
 	headers           func(req *Request)
 	doWrite           func(data []byte)
+
+	reqGuard  int32
+	dataGuard int32
+
+	writeCh chan []byte
+	readyCh chan bool
 }
 
 func NewPollingTransport(req *Request) Transport {
@@ -31,15 +35,14 @@ func (poll *Polling) InitPolling(req *Request) {
 	poll.name = "polling"
 
 	poll.doClose = func(fn func()) {
-		if poll.dataReq != nil {
-			poll.dataReq.abort()
-		}
-		if poll.pWritable {
-			poll.send([]*parser.Packet{&parser.Packet{Type: "close"}})
-			fn()
-		} else {
-			poll.shouldClose = fn
-		}
+		poll.tryWritable(
+			func() {
+				poll.send([]*parser.Packet{&parser.Packet{Type: "close"}})
+				fn()
+			},
+			func() {
+				poll.shouldClose = fn
+			})
 	}
 }
 
@@ -56,90 +59,90 @@ func (poll *Polling) onRequest(req *Request) {
 	}
 }
 
+func (poll *Polling) tryWritable(fn, def func()) {
+	select {
+	case <-poll.readyCh:
+		fn()
+	default:
+		if def != nil {
+			def()
+		}
+	}
+}
+
 func (poll *Polling) onPollRequest(req *Request) {
 	res := req.res
 
-	if poll.req != nil {
+	if atomic.SwapInt32(poll.reqGuard, 1) != 0 {
 		poll.onError("overlap from client", "")
 		res.WriteHeader(500)
 		return
 	}
 
-	poll.req = req
-	poll.res = res
-
-	onClose := func() { poll.onError("poll connection closed prematurely", "") }
-
-	req.cleanup = func() {
-		req.RemoveListener("close", onClose)
-		poll.req = nil
-		poll.res = nil
-	}
 	req.On("close", onClose)
 
-	poll.pWritable = true
 	poll.Emit("drain")
 
-	if poll.pWritable && poll.shouldClose != nil {
-		poll.send([]*parser.Packet{&noopPkt})
+	if poll.shouldClose != nil {
+		poll.tryWritable(func() {
+			poll.send([]*parser.Packet{&noopPkt})
+		}, nil)
 	}
-}
 
-type funcBag struct {
-	onClose func()
-	onData  func(data []byte)
-	onEnd   func()
-	cleanup func()
+	poll.readyCh = make(chan bool)
+	poll.writeCh = make(chan []byte, 1)
+	timeout := make(chan bool, 1)
+
+	var data []byte = nil
+	select {
+	case poll.readyCh <- true:
+		data = <-poll.writeCh
+	case <-timeout:
+	}
+	poll.doWrite(data)
+	close(poll.readyCh)
+	close(poll.reqCh)
+	close(timeout)
+	poll.readyCh = nil
+	poll.writeCh = nil
+
+	atomic.StoreInt32(poll.reqGuard, 0)
 }
 
 func (poll *Polling) onDataRequest(req *Request) {
 	res := req.res
 
-	if poll.dataReq != nil {
+	if atomic.SwapInt32(poll.dataGuard, 1) != 0 {
 		poll.onError("data request overlap from client", "")
 		res.WriteHeader(500)
 		return
 	}
 
-	bag := funcBag{}
-
 	chunks := new(bytes.Buffer)
-	bag.onData = func(data []byte) {
-		if len(data)+chunks.Len() > poll.maxHTTPBufferSize {
+	buffer := make([]byte, 0, 4096)
+	for {
+		_, err = req.httpReq.Body.Read(buffer)
+		if len(buffer)+chunks.Len() > poll.maxHTTPBufferSize {
 			chunks.Reset()
 			req.httpReq.Body.Close()
+			req.httpReq.Close = true
 		} else {
-			chunks.Write(data)
+			chunks.Write(buffer)
+		}
+		if err != nil {
+			break
 		}
 	}
 
-	bag.onClose = func() {
-		bag.cleanup()
-		poll.onError("data request connection closed prematurely", "")
-	}
+	go poll.onData(chunks.Next(chunks.Len()))
 
-	bag.onEnd = func() {
-		poll.onData(chunks.Next(chunks.Len()))
-		res.Header().Set("Content-Length", "2")
-		res.Header().Set("Content-Type", "text/html")
-		poll.headers(req)
-		res.WriteHeader(200)
-		res.Write([]byte("ok"))
-		bag.cleanup()
-	}
+	res.Header().Set("Content-Length", "2")
+	res.Header().Set("Content-Type", "text/html")
+	poll.headers(req)
+	res.WriteHeader(200)
+	res.Write([]byte("ok"))
 
-	bag.cleanup = func() {
-		req.RemoveListener("data", bag.onData)
-		req.RemoveListener("end", bag.onEnd)
-		req.RemoveListener("close", bag.onClose)
-		poll.dataReq = nil
-		poll.dataRes = nil
-	}
-
-	req.abort = bag.cleanup
-	req.On("close", bag.onClose)
-	req.On("data", bag.onData)
-	req.On("end", bag.onEnd)
+	atomic.StoreInt32(poll.dataGuard, 0)
 }
 
 func (poll *Polling) onData(data []byte) {
@@ -165,15 +168,9 @@ func (poll *Polling) send(pkts []*parser.Packet) {
 }
 
 func (poll *Polling) write(data []byte) {
-	poll.doWrite(data)
-	poll.req.cleanup()
-	poll.pWritable = false
+	poll.writeCh <- data
 }
 
 func (poll *Polling) setMaxHTTPBufferSize(size int) {
 	poll.maxHTTPBufferSize = size
-}
-
-func (poll *Polling) writable() bool {
-	return poll.pWritable
 }

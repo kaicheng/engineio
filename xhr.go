@@ -10,15 +10,16 @@ type XHR struct {
 
 func (xhr *XHR) InitXHR(req *Request) {
 	xhr.InitPolling(req)
-	
+
 	xhr.Polling.doWrite = func(data []byte) {
 		contentType := "text/plains; charset=UTF-8"
 		contentLength := fmt.Sprintf("%d", len(data))
-		xhr.res.Header().Set("Content-Type", contentType)
-		xhr.res.Header().Set("Content-Length", contentLength)
+		res := req.res
+		res.Header().Set("Content-Type", contentType)
+		res.Header().Set("Content-Length", contentLength)
 		xhr.headers(req)
-		xhr.res.WriteHeader(200)
-		xhr.res.Write(data)
+		res.WriteHeader(200)
+		res.Write(data)
 	}
 
 	xhr.Polling.headers = func(req *Request) {
