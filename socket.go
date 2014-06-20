@@ -134,8 +134,7 @@ func (socket *Socket) Write(data []byte) {
 
 func (socket *Socket) flush() {
 	if "closed" != socket.readyState && len(socket.WriteBuffer) > 0 {
-		select {
-		case <-socket.Transport.getReadyChan():
+		socket.Transport.tryWritable(func() {
 			socket.Emit("flush", socket.WriteBuffer)
 			socket.server.Emit("flush", socket.WriteBuffer)
 			buf := socket.WriteBuffer
@@ -143,8 +142,7 @@ func (socket *Socket) flush() {
 			socket.Transport.send(buf)
 			socket.Emit("drain")
 			socket.server.Emit("drain", socket)
-		default:
-		}
+		}, nil)
 	}
 }
 
