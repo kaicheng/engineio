@@ -81,6 +81,12 @@ func (poll *Polling) onPollRequest(req *Request) {
 	}
 	debug("setting request")
 
+	poll.readyCh = make(chan bool, 1)
+	poll.writeCh = make(chan []byte, 1)
+	timeout := make(chan bool, 1)
+
+	poll.readyCh <- true
+
 	poll.Emit("drain")
 
 	if poll.shouldClose != nil {
@@ -89,14 +95,9 @@ func (poll *Polling) onPollRequest(req *Request) {
 		}, nil)
 	}
 
-	poll.readyCh = make(chan bool)
-	poll.writeCh = make(chan []byte, 1)
-	timeout := make(chan bool, 1)
-
 	var data []byte = nil
 	select {
-	case poll.readyCh <- true:
-		data = <-poll.writeCh
+	case data = <-poll.writeCh:
 	case <-timeout:
 	}
 	poll.doWrite(req, data)
@@ -120,22 +121,22 @@ func (poll *Polling) onDataRequest(req *Request) {
 	}
 
 	chunks := new(bytes.Buffer)
-	buffer := make([]byte, 0, 4096)
+	buffer := make([]byte, 4096)
 	for {
-		_, err := req.httpReq.Body.Read(buffer)
-		if len(buffer)+chunks.Len() > poll.maxHTTPBufferSize {
+		length, err := req.httpReq.Body.Read(buffer)
+		if length+chunks.Len() > poll.maxHTTPBufferSize {
 			chunks.Reset()
 			req.httpReq.Body.Close()
 			req.httpReq.Close = true
 		} else {
-			chunks.Write(buffer)
+			chunks.Write(buffer[:length])
 		}
 		if err != nil {
 			break
 		}
 	}
 
-	debug("data request onEnd ok")
+	debug("data request onEnd ok. data.len = ", chunks.Len())
 	go poll.onData(chunks.Next(chunks.Len()))
 
 	res.Header().Set("Content-Length", "2")

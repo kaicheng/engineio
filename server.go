@@ -76,7 +76,7 @@ func NewServer(opts Options) (srv *Server) {
 	srv.Clients = make(map[string]*Socket)
 	srv.clientsCount = 0
 
-	transportsArray := make([]string, len(transports))
+	transportsArray := make([]interface{}, len(transports))
 	i := 0
 	for key, _ := range transports {
 		transportsArray[i] = key
@@ -88,7 +88,11 @@ func NewServer(opts Options) (srv *Server) {
 	srv.upgradeTimeout = (time.Duration(valueOrDefault(opts, "upgradeTimeout", 10000).(int)) * time.Millisecond)
 
 	srv.maxHttpBufferSize = valueOrDefault(opts, "maxHttpBufferSize", 100000000).(int)
-	srv.transports = valueOrDefault(opts, "transports", transportsArray).([]string)
+	tmpTransports := valueOrDefault(opts, "transports", transportsArray).([]interface{})
+	srv.transports = make([]string, len(tmpTransports))
+	for i, v := range tmpTransports {
+		srv.transports[i] = v.(string)
+	}
 	srv.allowUpgrades = false // original default true
 	srv.allowRequest = nil
 	srv.cookie = valueOrDefault(opts, "cookie", "io").(string)
@@ -221,6 +225,8 @@ func (srv *Server) handshake(transportName string, req *Request) {
 		})
 	}
 
+	transport.onRequest(req)
+
 	srv.Clients[id] = socket
 	srv.clientsCount++
 
@@ -231,6 +237,4 @@ func (srv *Server) handshake(transportName string, req *Request) {
 
 	debug("emitting 'connection'")
 	srv.Emit("connection", socket)
-
-	transport.onRequest(req)
 }

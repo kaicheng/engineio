@@ -156,6 +156,14 @@ func main() {
 				expect(string(msg) == "a", "should receiving data")
 			})
 		})
+	case "should arrive when binary data sent as Buffer (polling)":
+		binaryData := make([]byte, 5)
+		for i := 0; i < 5; i += 1 {
+			binaryData[i] = byte(i)
+		}
+		eio.On("connection", func(socket *engineio.Socket) {
+			socket.SendBin(binaryData)
+		})
 	case "default":
 	default:
 		return

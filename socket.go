@@ -83,6 +83,16 @@ func (socket *Socket) sendPacket(strType string, data []byte) {
 	}
 }
 
+func (socket *Socket) sendBinPacket(strType string, data []byte) {
+	if "closing" != socket.readyState {
+		debug(fmt.Sprintf("sending packet \"%s\" (\"%s\")", strType, string(data)))
+		packet := &parser.Packet{Type: strType, Data: data, IsBin: true}
+		socket.Emit("packetCreate", packet)
+		socket.WriteBuffer = append(socket.WriteBuffer, packet)
+		socket.flush()
+	}
+}
+
 func (socket *Socket) onPacket(packet *parser.Packet) {
 	if "open" == socket.readyState {
 		debug("packet")
@@ -132,6 +142,10 @@ func (socket *Socket) setupSendCallback() {
 
 func (socket *Socket) Send(data []byte) {
 	socket.sendPacket("message", data)
+}
+
+func (socket *Socket) SendBin(data []byte) {
+	socket.sendBinPacket("message", data)
 }
 
 func (socket *Socket) Write(data []byte) {
