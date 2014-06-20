@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/kaicheng/goport/engineio/parser"
-	"net/http"
-	"sync"
 	"sync/atomic"
 )
 
@@ -16,7 +14,7 @@ type Polling struct {
 	maxHTTPBufferSize int
 	shouldClose       func()
 	headers           func(req *Request)
-	doWrite           func(data []byte)
+	doWrite           func(req *Request, data []byte)
 
 	reqGuard  int32
 	dataGuard int32
@@ -48,6 +46,7 @@ func (poll *Polling) InitPolling(req *Request) {
 }
 
 func (poll *Polling) onRequest(req *Request) {
+	debug("poll.onRequest", req)
 	switch req.httpReq.Method {
 	case "GET":
 		poll.onPollRequest(req)
@@ -57,7 +56,6 @@ func (poll *Polling) onRequest(req *Request) {
 		debug("polling default")
 		res := req.res
 		res.WriteHeader(500)
-		res.Write(nil)
 	}
 }
 
@@ -75,15 +73,13 @@ func (poll *Polling) tryWritable(fn, def func()) {
 func (poll *Polling) onPollRequest(req *Request) {
 	res := req.res
 
-	if atomic.SwapInt32(poll.reqGuard, 1) != 0 {
+	if atomic.SwapInt32(&poll.reqGuard, 1) != 0 {
 		debug("request overlap")
 		poll.onError("overlap from client", "")
 		res.WriteHeader(500)
 		return
 	}
 	debug("setting request")
-
-	req.On("close", onClose)
 
 	poll.Emit("drain")
 
@@ -103,20 +99,20 @@ func (poll *Polling) onPollRequest(req *Request) {
 		data = <-poll.writeCh
 	case <-timeout:
 	}
-	poll.doWrite(data)
+	poll.doWrite(req, data)
 	close(poll.readyCh)
-	close(poll.reqCh)
+	close(poll.writeCh)
 	close(timeout)
 	poll.readyCh = nil
 	poll.writeCh = nil
 
-	atomic.StoreInt32(poll.reqGuard, 0)
+	atomic.StoreInt32(&poll.reqGuard, 0)
 }
 
 func (poll *Polling) onDataRequest(req *Request) {
 	res := req.res
 
-	if atomic.SwapInt32(poll.dataGuard, 1) != 0 {
+	if atomic.SwapInt32(&poll.dataGuard, 1) != 0 {
 		debug("data request overlap from client")
 		poll.onError("data request overlap from client", "")
 		res.WriteHeader(500)
@@ -126,7 +122,7 @@ func (poll *Polling) onDataRequest(req *Request) {
 	chunks := new(bytes.Buffer)
 	buffer := make([]byte, 0, 4096)
 	for {
-		_, err = req.httpReq.Body.Read(buffer)
+		_, err := req.httpReq.Body.Read(buffer)
 		if len(buffer)+chunks.Len() > poll.maxHTTPBufferSize {
 			chunks.Reset()
 			req.httpReq.Body.Close()
@@ -148,7 +144,7 @@ func (poll *Polling) onDataRequest(req *Request) {
 	res.WriteHeader(200)
 	res.Write([]byte("ok"))
 
-	atomic.StoreInt32(poll.dataGuard, 0)
+	atomic.StoreInt32(&poll.dataGuard, 0)
 }
 
 func (poll *Polling) onData(data []byte) {
@@ -169,6 +165,10 @@ func (poll *Polling) send(pkts []*parser.Packet) {
 		pkts = append(pkts, &parser.Packet{Type: "close"})
 		poll.shouldClose()
 		poll.shouldClose = nil
+	}
+	debug("poll.send")
+	for _, pkt := range pkts {
+		debug(*pkt)
 	}
 
 	parser.EncodePayload(pkts, poll.supportsBinary, func(data []byte) {

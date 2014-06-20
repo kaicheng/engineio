@@ -11,7 +11,7 @@ type XHR struct {
 func (xhr *XHR) InitXHR(req *Request) {
 	xhr.InitPolling(req)
 
-	xhr.Polling.doWrite = func(data []byte) {
+	xhr.Polling.doWrite = func(req *Request, data []byte) {
 		debug(fmt.Sprintf("xhr writing \"%s\"", string(data)))
 		contentType := "text/plains; charset=UTF-8"
 		contentLength := fmt.Sprintf("%d", len(data))

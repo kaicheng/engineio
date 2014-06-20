@@ -221,8 +221,6 @@ func (srv *Server) handshake(transportName string, req *Request) {
 		})
 	}
 
-	transport.onRequest(req)
-
 	srv.Clients[id] = socket
 	srv.clientsCount++
 
@@ -231,5 +229,8 @@ func (srv *Server) handshake(transportName string, req *Request) {
 		srv.clientsCount--
 	})
 
+	debug("emitting 'connection'")
 	srv.Emit("connection", socket)
+
+	transport.onRequest(req)
 }

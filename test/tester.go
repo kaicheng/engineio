@@ -130,11 +130,13 @@ func main() {
 		})
 	case "should arrive from server to client (multiple)":
 		eio.On("connection", func(socket *engineio.Socket) {
+			log("Sending a")
 			socket.Send([]byte("a"))
 			time.AfterFunc(50*time.Millisecond, func() {
 				log("Sending b")
 				socket.Send([]byte("b"))
 				time.AfterFunc(50*time.Millisecond, func() {
+					log("Sending c")
 					socket.Send([]byte("c"))
 					time.AfterFunc(50*time.Millisecond, func() {
 						socket.Close()

@@ -90,6 +90,5 @@ func (trans *websocketTransport) setMaxHTTPBufferSize(size int) {
 func (trans *websocketTransport) setSupportsBinary(b bool) {
 }
 
-func (trans *websocketTransport) writable() bool {
-	return trans.wswritable
+func (trans *websocketTransport) tryWritable(fn, def func()) {
 }
