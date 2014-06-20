@@ -61,6 +61,7 @@ func (trans *TransportBase) readyState() string {
 }
 
 func (trans *TransportBase) onRequest(req *Request) {
+	debug("setting request")
 	trans.req = req
 }
 

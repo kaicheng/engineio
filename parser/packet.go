@@ -31,7 +31,7 @@ var PacketsList = []string{
 }
 
 type Packet struct {
-	Type string
-	Data []byte
+	Type  string
+	Data  []byte
 	IsBin bool
 }

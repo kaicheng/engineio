@@ -9,7 +9,7 @@ import (
 
 	"github.com/kaicheng/goport/events"
 
-//	"runtime/debug"
+	//	"runtime/debug"
 )
 
 type Options map[string]interface{}
@@ -115,6 +115,7 @@ func (srv *Server) verify(req *Request, upgrade bool, fn func(int, bool)) {
 	sid := req.Query.Get("sid")
 
 	if trans, ok := transports[transport]; !ok || trans == nil {
+		debug(fmt.Sprintf("unknown transport \"%s\"", transport))
 		fn(UNKNOWN_TRANSPORT, false)
 		return
 	}
@@ -157,6 +158,7 @@ func sendErrorMessage(res http.ResponseWriter, code int) {
 }
 
 func (srv *Server) ServeHTTP(res http.ResponseWriter, httpreq *http.Request) {
+	debug(fmt.Sprintf("handling \"%s\" http request \"%s\"", httpreq.Method, httpreq.RequestURI))
 	req := new(Request)
 	req.InitEventEmitter()
 	req.httpReq = httpreq
@@ -170,6 +172,7 @@ func (srv *Server) ServeHTTP(res http.ResponseWriter, httpreq *http.Request) {
 		}
 
 		if len(req.Query["sid"]) > 0 {
+			debug("setting new request for existing client")
 			srv.Clients[req.Query.Get("sid")].Transport.onRequest(req)
 		} else {
 			srv.handshake(req.Query.Get("transport"), req)
@@ -178,6 +181,7 @@ func (srv *Server) ServeHTTP(res http.ResponseWriter, httpreq *http.Request) {
 }
 
 func (srv *Server) Close() {
+	debug("closing all open clients")
 	for _, socket := range srv.Clients {
 		socket.Close()
 	}
@@ -194,6 +198,8 @@ func (srv *Server) handshake(transportName string, req *Request) {
 	}()
 
 	id := generateId()
+
+	debug(fmt.Sprintf("handshaking client \"%s\"", id))
 
 	transport := transports[transportName](req)
 

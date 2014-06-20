@@ -75,6 +75,7 @@ func (socket *Socket) onClose(reason, desc string) {
 
 func (socket *Socket) sendPacket(strType string, data []byte) {
 	if "closing" != socket.readyState {
+		debug(fmt.Sprintf("sending packet \"%s\" (\"%s\")", strType, string(data)))
 		packet := &parser.Packet{Type: strType, Data: data}
 		socket.Emit("packetCreate", packet)
 		socket.WriteBuffer = append(socket.WriteBuffer, packet)
@@ -84,12 +85,14 @@ func (socket *Socket) sendPacket(strType string, data []byte) {
 
 func (socket *Socket) onPacket(packet *parser.Packet) {
 	if "open" == socket.readyState {
+		debug("packet")
 		socket.Emit("packet", packet)
 
 		socket.setPingTimeout()
 
 		switch packet.Type {
 		case "ping":
+			debug("got ping")
 			socket.sendPacket("pong", nil)
 			socket.Emit("heartbeat")
 		case "error":
@@ -98,10 +101,13 @@ func (socket *Socket) onPacket(packet *parser.Packet) {
 			socket.Emit("data", packet.Data)
 			socket.Emit("message", packet.Data)
 		}
+	} else {
+		debug("packet received with closed socket")
 	}
 }
 
 func (socket *Socket) OnError(err string) {
+	debug("transport error")
 	socket.onClose("transport error", err)
 }
 
@@ -115,9 +121,9 @@ func (socket *Socket) setPingTimeout() {
 }
 
 func (socket *Socket) clearTransport() {
-	if socket.checkIntervalTimer != nil {
-		socket.checkIntervalTimer.Stop()
-	}
+	socket.Transport.On("error", func(arg interface{}) {
+		debug("error triggered by discarded transport")
+	})
 	socket.pingTimeoutTimer.Stop()
 }
 
@@ -135,6 +141,7 @@ func (socket *Socket) Write(data []byte) {
 func (socket *Socket) flush() {
 	if "closed" != socket.readyState && len(socket.WriteBuffer) > 0 {
 		socket.Transport.tryWritable(func() {
+		    debug("flusing buffer to transport")
 			socket.Emit("flush", socket.WriteBuffer)
 			socket.server.Emit("flush", socket.WriteBuffer)
 			buf := socket.WriteBuffer

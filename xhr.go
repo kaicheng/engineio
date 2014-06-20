@@ -12,6 +12,7 @@ func (xhr *XHR) InitXHR(req *Request) {
 	xhr.InitPolling(req)
 
 	xhr.Polling.doWrite = func(data []byte) {
+		debug(fmt.Sprintf("xhr writing \"%s\"", string(data)))
 		contentType := "text/plains; charset=UTF-8"
 		contentLength := fmt.Sprintf("%d", len(data))
 		res := req.res
@@ -29,6 +30,7 @@ func (xhr *XHR) InitXHR(req *Request) {
 
 func (xhr *XHR) onRequest(req *Request) {
 	if "OPTIONS" == req.httpReq.Method {
+		debug("xhr Method == OPTIONS")
 		res := req.res
 		xhr.headers(req)
 		res.Header().Set("Access-Control-Allow-Headers", "Content-Type")

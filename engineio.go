@@ -40,6 +40,7 @@ func Attach(server *http.Server, opts Options) *Server {
 	mux := http.NewServeMux()
 	srv := NewServer(opts)
 	path := getPath(opts)
+	debug(fmt.Sprintf("intercepting request for path \"%s\"", path))
 	mux.Handle(path, srv)
 	if path != "/" {
 		mux.Handle("/", server.Handler)

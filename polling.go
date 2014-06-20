@@ -2,6 +2,7 @@ package engineio
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/kaicheng/goport/engineio/parser"
 	"net/http"
 	"sync"
@@ -53,6 +54,7 @@ func (poll *Polling) onRequest(req *Request) {
 	case "POST":
 		poll.onDataRequest(req)
 	default:
+		debug("polling default")
 		res := req.res
 		res.WriteHeader(500)
 		res.Write(nil)
@@ -74,10 +76,12 @@ func (poll *Polling) onPollRequest(req *Request) {
 	res := req.res
 
 	if atomic.SwapInt32(poll.reqGuard, 1) != 0 {
+		debug("request overlap")
 		poll.onError("overlap from client", "")
 		res.WriteHeader(500)
 		return
 	}
+	debug("setting request")
 
 	req.On("close", onClose)
 
@@ -113,6 +117,7 @@ func (poll *Polling) onDataRequest(req *Request) {
 	res := req.res
 
 	if atomic.SwapInt32(poll.dataGuard, 1) != 0 {
+		debug("data request overlap from client")
 		poll.onError("data request overlap from client", "")
 		res.WriteHeader(500)
 		return
@@ -134,6 +139,7 @@ func (poll *Polling) onDataRequest(req *Request) {
 		}
 	}
 
+	debug("data request onEnd ok")
 	go poll.onData(chunks.Next(chunks.Len()))
 
 	res.Header().Set("Content-Length", "2")
@@ -146,8 +152,10 @@ func (poll *Polling) onDataRequest(req *Request) {
 }
 
 func (poll *Polling) onData(data []byte) {
+	debug(fmt.Sprintf("received \"%s\"", string(data)))
 	parser.DecodePayload(data, func(pkt parser.Packet, index, total int) {
 		if pkt.Type == "close" {
+			debug("got xhr close packet")
 			poll.onClose()
 			return
 		}
@@ -157,6 +165,7 @@ func (poll *Polling) onData(data []byte) {
 
 func (poll *Polling) send(pkts []*parser.Packet) {
 	if poll.shouldClose != nil {
+		debug("appending close packet to payload")
 		pkts = append(pkts, &parser.Packet{Type: "close"})
 		poll.shouldClose()
 		poll.shouldClose = nil
@@ -168,6 +177,7 @@ func (poll *Polling) send(pkts []*parser.Packet) {
 }
 
 func (poll *Polling) write(data []byte) {
+	debug(fmt.Sprintf("writing \"%s\"", string(data)))
 	poll.writeCh <- data
 }
 
