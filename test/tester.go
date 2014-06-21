@@ -164,6 +164,47 @@ func main() {
 		eio.On("connection", func(socket *engineio.Socket) {
 			socket.SendBin(binaryData)
 		})
+	case "should execute in order when message sent (client) (polling)":
+		eio.On("connection", func(socket *engineio.Socket) {
+			socket.On("message", func(msg []byte) {
+				socket.Send(msg)
+			})
+		})
+	case "should execute once for each send":
+		eio.On("connection", func(socket *engineio.Socket) {
+			socket.Send([]byte("a"))
+			socket.Send([]byte("b"))
+			socket.Send([]byte("c"))
+		})
+	case "should emit when socket receives packet":
+		eio.On("connection", func(socket *engineio.Socket) {
+			socket.On("packet", func(pkt *parser.Packet) {
+				expect(pkt.Type == "message", "packet type error")
+				expect(string(pkt.Data) == "a", "packet data error")
+			})
+		})
+	case "should emit when receives ping":
+		eio.On("connection", func(socket *engineio.Socket) {
+			socket.On("packet", func(pkt *parser.Packet) {
+				socket.Close()
+				expect(pkt.Type == "ping", "packet type error")
+			})
+		})
+	case "should emit before socket send message":
+		eio.On("connection", func(socket *engineio.Socket) {
+			socket.On("packetCreate", func(pkt *parser.Packet) {
+				expect(pkt.Type == "message", "packet type error")
+				expect(string(pkt.Data) == "a", "packet data error")
+			})
+			socket.Send([]byte("a"))
+		})
+	case "should emit before send pong":
+		eio.On("connection", func(socket *engineio.Socket) {
+			socket.On("packetCreate", func(pkt *parser.Packet) {
+				socket.Close()
+				expect(pkt.Type == "pong", "packet type error")
+			})
+		})
 	case "default":
 	default:
 		return

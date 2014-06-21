@@ -37,7 +37,7 @@ func expect(t *testing.T, res bool, msgs ...interface{}) {
 var errPkg = Packet{Type: "error", Data: []byte("parser error")}
 
 func TestEncode(t *testing.T) {
-	encode(&Packet{Type: "message", Data: []byte("test")}, func([]byte){})
+	encode(&Packet{Type: "message", Data: []byte("test")}, func([]byte) {})
 }
 
 func TestEncodeDecode(t *testing.T) {

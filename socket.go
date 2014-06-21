@@ -95,7 +95,8 @@ func (socket *Socket) sendBinPacket(strType string, data []byte) {
 
 func (socket *Socket) onPacket(packet *parser.Packet) {
 	if "open" == socket.readyState {
-		debug("packet")
+		debug("packet ", packet.Type)
+		debug("packet.Data", string(packet.Data))
 		socket.Emit("packet", packet)
 
 		socket.setPingTimeout()
