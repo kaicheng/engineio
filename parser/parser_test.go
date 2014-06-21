@@ -37,7 +37,7 @@ func expect(t *testing.T, res bool, msgs ...interface{}) {
 var errPkg = Packet{Type: "error", Data: []byte("parser error")}
 
 func TestEncode(t *testing.T) {
-	encode(&Packet{Type: "message", Data: []byte("test")}, nil)
+	encode(&Packet{Type: "message", Data: []byte("test")}, func([]byte){})
 }
 
 func TestEncodeDecode(t *testing.T) {
@@ -105,7 +105,7 @@ func TestDecodeErrorHandling(t *testing.T) {
 
 func TestEncodePayloadBasic(t *testing.T) {
 	encPayload([]*Packet{&Packet{Type: "ping"}, &Packet{Type: "post"}}, func(data []byte) {
-		expect(t, string(data) == "2:b22:b0", "Encode err")
+		expect(t, string(data) == "1:21:0", "Encode err")
 	})
 }
 
@@ -176,7 +176,7 @@ func TestErrOnBadPacketFormat(t *testing.T) {
 }
 
 func TestSimpleEncodePayloadAsBinary(t *testing.T) {
-	encPayloadB([]*Packet{&Packet{Type: "close", Data: []byte{2, 3}}}, func(data []byte) {
+	encPayloadB([]*Packet{&Packet{Type: "close", Data: []byte{2, 3}, IsBin: true}}, func(data []byte) {
 		expect(t, bytes.Equal(data, []byte{1, 3, 255, 1, 2, 3}), "EncodePayloadAsBinary error")
 	})
 }
