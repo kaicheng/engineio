@@ -41,7 +41,7 @@ func DecodePacket(data []byte) Packet {
 		return DecodeBase64Packet(data[1:])
 	}
 
-	t := data[0]
+	t := data[0] - '0'
 	if int(t) >= len(PacketsList) {
 		return errPkt
 	}
