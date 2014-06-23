@@ -143,8 +143,6 @@ describe('server', function () {
       });
     });
 
-    /* TODO uncomment when any other transports enabled.
-
     it('should be able to open with ws directly', function (done) {
       var engine = listen({ transports: ['websocket'] }, function (port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port), { transports: ['websocket'] });
@@ -225,7 +223,6 @@ describe('server', function () {
         });
       });
     });
-*/
 
     it('should allow arbitrary data through query string', function (done) {
       var engine = listen('should allow arbitrary data through query string', { allowUpgrades: false }, function (port) {
