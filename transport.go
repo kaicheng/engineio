@@ -30,7 +30,11 @@ type transportCreator func(*Request) Transport
 
 var transports = map[string]transportCreator{
 	"websocket": NewWebSocketTransport,
-	"polling": NewPollingTransport,
+	"polling":   NewPollingTransport,
+}
+
+var transportUpgrades = map[string][]string{
+	"polling": []string{"websocket"},
 }
 
 var noopPkt = parser.Packet{Type: "noop"}

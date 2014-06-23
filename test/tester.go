@@ -72,7 +72,7 @@ func main() {
 			expect(socket != nil, "socket != nil")
 		})
 	case "should be able to open with ws directly":
-		eio.On("connection", func (socket *engineio.Socket) {
+		eio.On("connection", func(socket *engineio.Socket) {
 			expect(socket.Transport.Name() == "websocket", "socket name is web socket.")
 		})
 	case "should open with polling by default":

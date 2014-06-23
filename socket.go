@@ -1,6 +1,7 @@
 package engineio
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -48,8 +49,9 @@ func (socket *Socket) onOpen() {
 	socket.Transport.setSid(socket.id)
 	pingInterval := (int64)(socket.server.pingInterval / time.Millisecond)
 	pingTimeout := (int64)(socket.server.pingTimeout / time.Millisecond)
+	upgrades, _ := json.Marshal(socket.getAvailableUpgrades())
 	socket.sendPacket("open", []byte(fmt.Sprintf("{\"sid\":\"%s\",\"upgrades\":%s,\"pingInterval\":%d, \"pingTimeout\":%d}",
-		socket.id, socket.getAvailableUpgrades(), pingInterval, pingTimeout)))
+		socket.id, upgrades, pingInterval, pingTimeout)))
 
 	socket.Emit("open")
 	socket.setPingTimeout()
@@ -169,7 +171,7 @@ func (socket *Socket) flush() {
 }
 
 func (socket *Socket) getAvailableUpgrades() []string {
-	return []string{}
+	return socket.server.upgrades(socket.Transport.Name())
 }
 
 func (socket *Socket) setTransport(transport Transport) {

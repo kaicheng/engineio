@@ -93,7 +93,7 @@ func NewServer(opts Options) (srv *Server) {
 	for i, v := range tmpTransports {
 		srv.transports[i] = v.(string)
 	}
-	srv.allowUpgrades = false // original default true
+	srv.allowUpgrades = valueOrDefault(opts, "allowUpgrades", true).(bool)
 	srv.allowRequest = nil
 	srv.cookie = valueOrDefault(opts, "cookie", "io").(string)
 
@@ -111,7 +111,10 @@ var ErrorMessages = []string{"Transport unknown", "Session ID unknown", "Bad han
 
 // TODO(kaicheng): allow upgrades.
 func (srv *Server) upgrades(transport string) []string {
-	return []string{}
+	if !srv.allowUpgrades {
+		return []string{}
+	}
+	return transportUpgrades[transport]
 }
 
 func (srv *Server) verify(req *Request, upgrade bool, fn func(int, bool)) {

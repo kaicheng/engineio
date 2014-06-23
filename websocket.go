@@ -1,17 +1,17 @@
 package engineio
 
 import (
-	"github.com/kaicheng/goport/engineio/parser"
 	"github.com/gorilla/websocket"
+	"github.com/kaicheng/goport/engineio/parser"
 	"net/http"
 )
 
 type WebSocket struct {
 	TransportBase
 
-	conn         *websocket.Conn
-	readyCh      chan bool
-	writeCh      chan []byte
+	conn    *websocket.Conn
+	readyCh chan bool
+	writeCh chan []byte
 }
 
 func NewWebSocketTransport(req *Request) Transport {
@@ -49,9 +49,9 @@ func (ws *WebSocket) InitWebSocket(req *Request) {
 	ws.name = "websocket"
 
 	upgrader := websocket.Upgrader{
-		ReadBufferSize: 1024,
+		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
-		CheckOrigin: func (r *http.Request) bool {
+		CheckOrigin: func(r *http.Request) bool {
 			return true
 		},
 	}
@@ -70,7 +70,7 @@ func (ws *WebSocket) InitWebSocket(req *Request) {
 	go websocketReadWorker(ws)
 	go websocketWriteWorker(ws)
 
-	ws.readyCh <- true	
+	ws.readyCh <- true
 }
 
 func (ws *WebSocket) send(pkts []*parser.Packet) {
