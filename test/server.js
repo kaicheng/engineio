@@ -192,13 +192,7 @@ describe('server', function () {
     });
 
     it('default to polling when proxy doesn\'t support websocket', function (done) {
-      var engine = listen({ allowUpgrades: false }, function (port) {
-
-        engine.on('connection', function (socket) {
-          socket.on('message', function (msg) {
-            if ('echo' == msg) socket.send(msg);
-          });
-        });
+      var engine = listen('default to polling when proxy doesn\'t support websocket', { allowUpgrades: false }, function (port) {
 
         var socket = new eioc.Socket('ws://localhost:%d'.s(port));
         socket.on('open', function () {

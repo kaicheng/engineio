@@ -79,6 +79,14 @@ func main() {
 		eio.On("connection", func(socket *engineio.Socket) {
 			expect(socket.Transport.Name() == "polling", "socket.Transport.Name() == \"polling\"")
 		})
+	case "default to polling when proxy doesn't support websocket":
+		eio.On("connection", func(socket *engineio.Socket) {
+			socket.On("message", func(msg []byte) {
+				if "echo" == string(msg) {
+					socket.Send(msg)
+				}
+			})
+		})
 	case "should allow arbitrary data through query string":
 		eio.On("connection", func(socket *engineio.Socket) {
 			query := socket.Request.Query

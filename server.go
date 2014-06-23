@@ -134,7 +134,9 @@ func (srv *Server) verify(req *Request, upgrade bool, fn func(int, bool)) {
 			return
 		}
 		if !upgrade && client.Transport.Name() != transport {
+			debug("bad request: unexpected transport without upgrade")
 			fn(BAD_REQUEST, false)
+			return
 		}
 	} else {
 		if "GET" != req.httpReq.Method {
@@ -174,6 +176,7 @@ func (srv *Server) ServeHTTP(res http.ResponseWriter, httpreq *http.Request) {
 
 	srv.verify(req, false, func(err int, success bool) {
 		if !success {
+			debug("sending error message")
 			sendErrorMessage(res, err)
 			return
 		}
