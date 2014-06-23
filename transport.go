@@ -29,7 +29,7 @@ type Transport interface {
 type transportCreator func(*Request) Transport
 
 var transports = map[string]transportCreator{
-	"websocket": NewWebsocketTransport,
+	"websocket": NewWebSocketTransport,
 	"polling": NewPollingTransport,
 }
 

@@ -144,12 +144,9 @@ describe('server', function () {
     });
 
     it('should be able to open with ws directly', function (done) {
-      var engine = listen({ transports: ['websocket'] }, function (port) {
+      var engine = listen('should be able to open with ws directly', { transports: ['websocket'] }, function (port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port), { transports: ['websocket'] });
-        engine.on('connection', function (socket) {
-          expect(socket.transport.name).to.be('websocket');
-          done();
-        });
+        done();
       });
     });
 
