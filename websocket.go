@@ -36,7 +36,11 @@ func websocketWriteWorker(ws *WebSocket) {
 		select {
 		case data := <-ws.writeCh:
 			debug("writing ", string(data))
-			if err := ws.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+			msgType := websocket.TextMessage
+			if data[0] < 20 {
+				msgType = websocket.BinaryMessage
+			}
+			if err := ws.conn.WriteMessage(msgType, data); err != nil {
 				return
 			}
 		}

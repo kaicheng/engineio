@@ -114,7 +114,11 @@ func (srv *Server) upgrades(transport string) []string {
 	if !srv.allowUpgrades {
 		return []string{}
 	}
-	return transportUpgrades[transport]
+	if upgs := transportUpgrades[transport]; upgs != nil {
+		return upgs
+	} else {
+		return []string{}
+	}
 }
 
 func (srv *Server) verify(req *Request, upgrade bool, fn func(int, bool)) {

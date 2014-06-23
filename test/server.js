@@ -791,14 +791,10 @@ describe('server', function () {
       });
     });
 
-/*
     it('should arrive from server to client (ws)', function (done) {
       var opts = { allowUpgrades: false, transports: ['websocket'] };
-      var engine = listen(opts, function (port) {
+      var engine = listen('should arrive from server to client', opts, function (port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port), { transports: ['websocket'] });
-        engine.on('connection', function (conn) {
-          conn.send('a');
-        });
         socket.on('open', function () {
           socket.on('message', function (msg) {
             expect(msg).to.be('a');
@@ -808,33 +804,19 @@ describe('server', function () {
       });
     });
 
-    it('should arrive from server to client (ws)', function (done) {
+    it('should arrive from server to client (ws) (multiple)', function (done) {
       var opts = { allowUpgrades: false, transports: ['websocket'] };
-      var engine = listen(opts, function (port) {
+      var engine = listen('should arrive from server to client (multiple)', opts, function (port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port), { transports: ['websocket'] })
           , expected = ['a', 'b', 'c']
           , i = 0;
 
-        engine.on('connection', function (conn) {
-          conn.send('a');
-          setTimeout(function () {
-            conn.send('b');
-            setTimeout(function () {
-              conn.send('c');
-              conn.close();
-            }, 50);
-          }, 50);
-          conn.on('close', function () {
-            setTimeout(function () {
-              expect(i).to.be(3);
-              done();
-            }, 50);
-          });
-        });
-
         socket.on('open', function () {
           socket.on('message', function (msg) {
             expect(msg).to.be(expected[i++]);
+            if (i == 3) {
+              done();
+            }
           });
         });
       });
@@ -847,12 +829,8 @@ describe('server', function () {
       }
 
       var opts = { allowUpgrades: false, transports: ['websocket'] };
-      var engine = listen(opts, function(port) {
+      var engine = listen('should arrive when binary data sent as Buffer (polling)', opts, function(port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port), { transports: ['websocket'] });
-
-        engine.on('connection', function (conn) {
-          conn.send(binaryData);
-        });
 
         socket.on('open', function () {
           socket.on('message', function(msg) {
@@ -866,6 +844,7 @@ describe('server', function () {
       });
     });
 
+/*
     it('should arrive when binary data is sent as Int32Array (ws)', function (done) {
       var binaryData = new Int32Array(5);
       for (var i = 0; i < binaryData.length; i++) {
@@ -892,6 +871,7 @@ describe('server', function () {
       });
     });
 
+
     it('should arrive when binary data is sent as Int32Array, given as ArrayBuffer(ws)', function (done) {
       var binaryData = new Int32Array(5);
       for (var i = 0; i < binaryData.length; i++) {
@@ -917,6 +897,7 @@ describe('server', function () {
         });
       });
     });
+*/
 
     it('should arrive when binary data is sent as Buffer (ws)', function (done) {
       var binaryData = Buffer(5);
@@ -925,12 +906,8 @@ describe('server', function () {
       }
 
       var opts = { allowUpgrades: false, transports: ['websocket'] };
-      var engine = listen(opts, function(port) {
+      var engine = listen('should arrive when binary data sent as Buffer (polling)', opts, function(port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port), { transports: ['websocket'] });
-
-        engine.on('connection', function (conn) {
-          conn.send(binaryData);
-        });
 
         socket.on('open', function () {
           socket.on('message', function(msg) {
@@ -943,7 +920,6 @@ describe('server', function () {
         });
       });
     });
-*/
 
     it('should arrive when binary data sent as Buffer (polling)', function (done) {
       var binaryData = Buffer(5);
@@ -968,7 +944,6 @@ describe('server', function () {
       });
     });
 
-/*
     it('should arrive as ArrayBuffer if requested when binary data sent as Buffer (ws)', function (done) {
       var binaryData = Buffer(5);
       for (var i = 0; i < binaryData.length; i++) {
@@ -976,13 +951,9 @@ describe('server', function () {
       }
 
       var opts = { allowUpgrades: false, transports: ['websocket'] };
-      var engine = listen(opts, function(port) {
+      var engine = listen('should arrive when binary data sent as Buffer (polling)', opts, function(port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port), { transports: ['websocket'] });
         socket.binaryType = 'arraybuffer';
-
-        engine.on('connection', function (conn) {
-          conn.send(binaryData);
-        });
 
         socket.on('open', function() {
           socket.on('message', function(msg) {
@@ -997,7 +968,6 @@ describe('server', function () {
         });
       });
     });
-*/
 
     it('should arrive as ArrayBuffer if requested when binary data sent as Buffer (polling)', function (done) {
       var binaryData = Buffer(5);
@@ -1113,8 +1083,7 @@ describe('server', function () {
         });
       });
 
-      /*
-      it('should not empty until `drain` event (websocket)', function (done) {
+      it('should not empty until `drain` event (ws)', function (done) {
         var engine = listen({ allowUpgrades: false }, function (port) {
           var socket = new eioc.Socket('ws://localhost:%d'.s(port), { transports: ['websocket'] });
           var totalEvents = 2;
@@ -1130,7 +1099,6 @@ describe('server', function () {
           });
         });
       });
-      */
     });
 
     describe('callback', function() {
@@ -1162,9 +1130,8 @@ describe('server', function () {
         });
       });
 
-      /*
       it('should execute in order when message sent (client) (websocket)', function (done) {
-        var engine = listen({ allowUpgrades: false }, function (port) {
+        var engine = listen('should execute in order when message sent (client) (polling)', { allowUpgrades: false }, function (port) {
           var socket = new eioc.Socket('ws://localhost:%d'.s(port), { transports: ['websocket'] });
           var i = 0;
           var j = 0;
@@ -1196,7 +1163,6 @@ describe('server', function () {
           });
         });
       });
-      */
 
       it('should execute in order with payloads (client) (polling)', function (done) {
         var engine = listen('should execute in order when message sent (client) (polling)', { allowUpgrades: false }, function (port) {
@@ -1229,18 +1195,11 @@ describe('server', function () {
         });
       });
       
-      /*
-      it('should execute in order with payloads (client) (websocket)', function (done) {
-        var engine = listen({ allowUpgrades: false }, function (port) {
+      it('should execute in order with payloads (client) (ws)', function (done) {
+        var engine = listen('should execute in order when message sent (client) (polling)', { allowUpgrades: false }, function (port) {
           var socket = new eioc.Socket('ws://localhost:%d'.s(port), { transports: ['websocket'] });
           var i = 0;
           var lastCbFired = 0;
-
-          engine.on('connection', function(conn) {
-            conn.on('message', function(msg) {
-              conn.send(msg);
-            });
-          });
 
           socket.on('open', function () {
             socket.on('message', function(msg) {
@@ -1266,7 +1225,6 @@ describe('server', function () {
           });
         });
       });
-      */
 
       // TODO: no callback interface
       /*
