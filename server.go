@@ -213,6 +213,11 @@ func (srv *Server) handshake(transportName string, req *Request) {
 
 	transport := transports[transportName](req)
 
+	if transport.readyState() == "closed" {
+		sendErrorMessage(req.res, BAD_REQUEST)
+		return
+	}
+
 	if "polling" == transportName {
 		transport.setMaxHTTPBufferSize(srv.maxHttpBufferSize)
 	}

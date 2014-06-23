@@ -227,7 +227,6 @@ describe('server', function () {
       });
     });
 
-/*
     it('should disallow bad requests', function (done) {
       var engine = listen(function (port) {
         request.get('http://localhost:%d/engine.io/default/'.s(port))
@@ -240,7 +239,6 @@ describe('server', function () {
           });
       });
     });
-*/
   });
 
   describe('close', function () {

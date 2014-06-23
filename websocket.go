@@ -43,18 +43,19 @@ func websocketWriteWorker(ws *WebSocket) {
 	}
 }
 
+var upgrader websocket.Upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+	Error: func(w http.ResponseWriter, r *http.Request, status int, reason error) {},
+}
+
 func (ws *WebSocket) InitWebSocket(req *Request) {
 	debug("InitWebSocket")
 	ws.initTransportBase(req)
 	ws.name = "websocket"
-
-	upgrader := websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
-	}
 
 	conn, err := upgrader.Upgrade(req.res, req.httpReq, nil)
 	if err != nil {
