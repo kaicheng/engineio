@@ -85,9 +85,8 @@ describe('server', function () {
       });
     });
 
-    /*
     it('should not send the io cookie', function (done) {
-      var engine = listen({ cookie: false }, function (port) {
+      var engine = listen({ cookie: "" }, function (port) {
         request.get('http://localhost:%d/engine.io/default/'.s(port))
           .query({ transport: 'polling' })
           .end(function (res) {
@@ -96,7 +95,6 @@ describe('server', function () {
           });
       });
     });
-*/
 
     it('should register a new client', function (done) {
       var engine = listen({ allowUpgrades: false }, function (port) {
