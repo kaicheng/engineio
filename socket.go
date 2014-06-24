@@ -183,6 +183,33 @@ func (socket *Socket) setTransport(transport Transport) {
 	socket.setupSendCallback()
 }
 
+type funcBag struct {
+	fn func(*parser.Packet)
+}
+
+func (socket *Socket) maybeUpgrade(transport Transport) {
+	debug(fmt.Sprintf("might upgrade socket transport from \"%s\" to \"%s\"",
+		socket.Transport.Name(), transport.Name()))
+
+	onPacket := new(funcBag)
+	onPacket.fn = func(pkt *parser.Packet) {
+		if "ping" == pkt.Type && "probe" == string(pkt.Data) {
+			transport.send([]*parser.Packet{&parser.Packet{Type: "pong", Data: []byte("probe")}})
+		} else if "upgrade" == pkt.Type && socket.readyState == "open" {
+			debug("got upgrade packet - upgrading")
+			socket.upgraded = true
+			socket.clearTransport()
+			socket.setTransport(transport)
+			socket.Emit("upgrade", transport)
+			socket.flush()
+			transport.RemoveListener("packet", onPacket.fn)
+			debug(fmt.Sprintf("upgrade to \"%s\" finishes", transport.Name()))
+		}
+	}
+
+	transport.On("packet", onPacket.fn)
+}
+
 func (socket *Socket) Close() {
 	if "open" == socket.readyState {
 		socket.readyState = "closing"

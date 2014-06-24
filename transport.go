@@ -82,6 +82,7 @@ func (trans *TransportBase) onError(msg, desc string) {
 }
 
 func (trans *TransportBase) onPacket(pkt *parser.Packet) {
+	debug("onPacket", *pkt)
 	trans.Emit("packet", pkt)
 }
 

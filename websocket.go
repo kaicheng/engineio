@@ -10,7 +10,6 @@ type WebSocket struct {
 	TransportBase
 
 	conn    *websocket.Conn
-	readyCh chan bool
 	writeCh chan []byte
 }
 
@@ -23,8 +22,9 @@ func NewWebSocketTransport(req *Request) Transport {
 func websocketReadWorker(ws *WebSocket) {
 	for {
 		_, p, err := ws.conn.ReadMessage()
-		debug("received ", string(p))
+		debug("websocket received ", string(p))
 		if err != nil {
+			debug("websocket: read error", err)
 			break
 		}
 		ws.onData(p)
@@ -35,12 +35,13 @@ func websocketWriteWorker(ws *WebSocket) {
 	for {
 		select {
 		case data := <-ws.writeCh:
-			debug("writing ", string(data))
+			debug("websocket writing ", string(data))
 			msgType := websocket.TextMessage
 			if data[0] < 20 {
 				msgType = websocket.BinaryMessage
 			}
 			if err := ws.conn.WriteMessage(msgType, data); err != nil {
+				debug("websocket: write error", err)
 				return
 			}
 		}
@@ -69,13 +70,10 @@ func (ws *WebSocket) InitWebSocket(req *Request) {
 	}
 	ws.conn = conn
 
-	ws.readyCh = make(chan bool, 1)
 	ws.writeCh = make(chan []byte, 1)
 
 	go websocketReadWorker(ws)
 	go websocketWriteWorker(ws)
-
-	ws.readyCh <- true
 }
 
 func (ws *WebSocket) send(pkts []*parser.Packet) {
@@ -85,18 +83,10 @@ func (ws *WebSocket) send(pkts []*parser.Packet) {
 			ws.Emit("drain")
 		})
 	}
-	ws.readyCh <- true
 }
 
 func (ws *WebSocket) tryWritable(fn, def func()) {
-	select {
-	case <-ws.readyCh:
-		fn()
-	default:
-		if def != nil {
-			def()
-		}
-	}
+	fn()
 }
 
 func (ws *WebSocket) doClose() {

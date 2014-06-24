@@ -7,7 +7,6 @@ import (
 	"github.com/kaicheng/goport/engineio/parser"
 	"net/http"
 	"os"
-	"runtime/debug"
 	"strconv"
 	"time"
 )
@@ -20,8 +19,7 @@ func expect(res bool, msgs ...interface{}) {
 	}
 	fmt.Println(msgs...)
 	if !res {
-		debug.PrintStack()
-		panic("!expect")
+		os.Exit(-1)
 	}
 }
 
@@ -217,9 +215,47 @@ func main() {
 				expect(pkt.Type == "pong", "packet type error")
 			})
 		})
+	case "should upgrade":
+		eio.On("connection", func(socket *engineio.Socket) {
+			var lastSent byte = 0
+			var lastReceived byte = 0
+			upgraded := false
+			expect(socket.Request.Query.Get("transport") == "polling", "transport is polling")
+			ticker := time.NewTicker(2 * time.Millisecond)
+			go func() {
+				for {
+					<-ticker.C
+					lastSent += 1
+					socket.Send([]byte(fmt.Sprintf("%d", lastSent)))
+					if 50 == lastSent {
+						ticker.Stop()
+						return
+					}
+				}
+			}()
+			socket.On("message", func(msg []byte) {
+				fmt.Println("on.message", string(msg))
+				lastReceived += 1
+				expect(string(msg) == fmt.Sprintf("%d", lastReceived), "msg == lastReceived")
+			})
+			socket.On("upgrade", func(to string) {
+				expect(socket.Request.Query.Get("transport") == "polling", "original transport is polling")
+				upgraded = true
+				expect(to == "websocket", "upgrade to websocket")
+				expect(socket.Transport.Name() == "websocket", "upgraded to websocket")
+			})
+			socket.On("close", func(reason string) {
+				expect(reason == "transport close", "reason is transport close")
+				expect(lastSent == 50, "lastSent == 50")
+				expect(lastReceived == 50, "lastReceived == 50")
+				expect(upgraded, "upgraded == true")
+			})
+		})
 	case "default":
 	default:
 		return
 	}
-	server.ListenAndServe()
+	go server.ListenAndServe()
+	timer := time.NewTimer(20 * time.Second)
+	<-timer.C
 }

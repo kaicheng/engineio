@@ -44,6 +44,15 @@ type Request struct {
 
 var gi = 0
 
+func inTransports(trans []string, tran string) bool {
+	for _, t := range trans {
+		if t == tran {
+			return true
+		}
+	}
+	return false
+}
+
 func generateId() string {
 	// FIXME: Need lock
 	gi++
@@ -115,7 +124,13 @@ func (srv *Server) upgrades(transport string) []string {
 		return []string{}
 	}
 	if upgs := transportUpgrades[transport]; upgs != nil {
-		return upgs
+		u := make([]string, 0, len(upgs))
+		for _, upg := range upgs {
+			if inTransports(srv.transports, upg) {
+				u = append(u, upg)
+			}
+		}
+		return u
 	} else {
 		return []string{}
 	}
@@ -125,7 +140,8 @@ func (srv *Server) verify(req *Request, upgrade bool, fn func(int, bool)) {
 	transport := req.Query.Get("transport")
 	sid := req.Query.Get("sid")
 
-	if trans, ok := transports[transport]; !ok || trans == nil {
+	trans, ok := transports[transport]
+	if !inTransports(srv.transports, transport) || !ok || trans == nil {
 		debug(fmt.Sprintf("unknown transport \"%s\"", transport))
 		fn(UNKNOWN_TRANSPORT, false)
 		return
@@ -170,6 +186,26 @@ func sendErrorMessage(res http.ResponseWriter, code int) {
 	*/
 }
 
+func (srv *Server) getTransport(name string, req *Request) Transport {
+	transport := transports[name](req)
+
+	if transport.readyState() == "closed" {
+		return nil
+	}
+
+	if "polling" == name {
+		transport.setMaxHTTPBufferSize(srv.maxHttpBufferSize)
+	}
+
+	if getBool(req.Query["b64"]) {
+		transport.setSupportsBinary(false)
+	} else {
+		transport.setSupportsBinary(true)
+	}
+
+	return transport
+}
+
 func (srv *Server) ServeHTTP(res http.ResponseWriter, httpreq *http.Request) {
 	debug(fmt.Sprintf("handling \"%s\" http request \"%s\"", httpreq.Method, httpreq.RequestURI))
 	req := new(Request)
@@ -177,17 +213,37 @@ func (srv *Server) ServeHTTP(res http.ResponseWriter, httpreq *http.Request) {
 	req.httpReq = httpreq
 	req.Query = httpreq.URL.Query()
 	req.res = res
+	debug(*httpreq)
 
-	srv.verify(req, false, func(err int, success bool) {
+	hasUpgrade := len(httpreq.Header.Get("Upgrade")) > 0
+
+	srv.verify(req, hasUpgrade, func(err int, success bool) {
 		if !success {
 			debug("sending error message")
 			sendErrorMessage(res, err)
 			return
 		}
 
-		if len(req.Query["sid"]) > 0 {
+		sid := req.Query.Get("sid")
+
+		if len(sid) > 0 {
 			debug("setting new request for existing client")
-			srv.Clients[req.Query.Get("sid")].Transport.onRequest(req)
+			if len(req.httpReq.Header.Get("upgrade")) > 0 {
+				socket := srv.Clients[sid]
+				if socket == nil {
+					debug("upgrade attempt for closed client")
+					sendErrorMessage(res, err)
+				} else if socket.upgraded {
+					debug("transport had already been upgraded")
+					sendErrorMessage(res, err)
+				} else {
+					debug("upgrading existing transport")
+					transport := srv.getTransport(req.Query.Get("transport"), req)
+					socket.maybeUpgrade(transport)
+				}
+			} else {
+				srv.Clients[sid].Transport.onRequest(req)
+			}
 		} else {
 			srv.handshake(req.Query.Get("transport"), req)
 		}
@@ -215,21 +271,11 @@ func (srv *Server) handshake(transportName string, req *Request) {
 
 	debug(fmt.Sprintf("handshaking client \"%s\"", id))
 
-	transport := transports[transportName](req)
+	transport := srv.getTransport(transportName, req)
 
-	if transport.readyState() == "closed" {
+	if transport == nil {
 		sendErrorMessage(req.res, BAD_REQUEST)
 		return
-	}
-
-	if "polling" == transportName {
-		transport.setMaxHTTPBufferSize(srv.maxHttpBufferSize)
-	}
-
-	if getBool(req.Query["b64"]) {
-		transport.setSupportsBinary(false)
-	} else {
-		transport.setSupportsBinary(true)
 	}
 
 	socket := newSocket(id, srv, transport, req)

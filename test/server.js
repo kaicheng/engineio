@@ -1136,12 +1136,6 @@ describe('server', function () {
           var i = 0;
           var j = 0;
 
-          engine.on('connection', function(conn) {
-            conn.on('message', function(msg) {
-              conn.send(msg);
-            });
-          });
-
           socket.on('open', function () {
             socket.on('message', function(msg) {
               // send another packet until we've sent 3 total
@@ -1460,53 +1454,16 @@ describe('server', function () {
     });
   });
 
-/*
   describe('upgrade', function () {
     it('should upgrade', function (done) {
-      var engine = listen(function (port) {
+      var engine = listen('should upgrade', function (port) {
         // it takes both to send 50 to verify
-        var ready = 2, closed = 2;
+        var ready = 1, closed = 1;
         function finish () {
           setTimeout(function () {
             socket.close();
           }, 10);
         }
-
-        // server
-        engine.on('connection', function (conn) {
-          var lastSent = 0, lastReceived = 0, upgraded = false;
-          var interval = setInterval(function () {
-            lastSent++;
-            conn.send(lastSent);
-            if (50 == lastSent) {
-              clearInterval(interval);
-              --ready || finish();
-            }
-          }, 2);
-
-          expect(conn.request._query.transport).to.be('polling');
-
-          conn.on('message', function (msg) {
-            expect(conn.request._query).to.be.an('object');
-            lastReceived++;
-            expect(msg).to.eql(lastReceived);
-          });
-
-          conn.on('upgrade', function (to) {
-            expect(conn.request._query.transport).to.be('polling');
-            upgraded = true;
-            expect(to.name).to.be('websocket');
-            expect(conn.transport.name).to.be('websocket');
-          });
-
-          conn.on('close', function (reason) {
-            expect(reason).to.be('transport close');
-            expect(lastSent).to.be(50);
-            expect(lastReceived).to.be(50);
-            expect(upgraded).to.be(true);
-            --closed || done();
-          });
-        });
 
         // client
         var socket = new eioc.Socket('ws://localhost:%d'.s(port));
@@ -1552,6 +1509,4 @@ describe('server', function () {
       });
     });
   });
-*/
-
 });
