@@ -21,7 +21,7 @@ type Socket struct {
 
 	WriteBuffer []*parser.Packet
 
-	checkIntervalTimer  *time.Timer
+	checkIntervalTimer  *ticker
 	upgradeTimeoutTimer *time.Timer
 	pingTimeoutTimer    *time.Timer
 }
@@ -59,15 +59,18 @@ func (socket *Socket) onOpen() {
 
 func (socket *Socket) onClose(reason, desc string) {
 	if "closed" != socket.readyState {
-		socket.pingTimeoutTimer.Stop()
+		if socket.pingTimeoutTimer != nil {
+			socket.pingTimeoutTimer.Stop()
+		}
+		socket.pingTimeoutTimer = nil
 		if socket.checkIntervalTimer != nil {
-			socket.checkIntervalTimer.Stop()
+			socket.checkIntervalTimer.stop()
 		}
 		socket.checkIntervalTimer = nil
 		if socket.upgradeTimeoutTimer != nil {
 			socket.upgradeTimeoutTimer.Stop()
 		}
-
+		socket.upgradeTimeoutTimer = nil
 		socket.clearTransport()
 		socket.readyState = "closed"
 		socket.Emit("close", reason, desc)
@@ -137,7 +140,10 @@ func (socket *Socket) clearTransport() {
 	socket.Transport.On("error", func(arg interface{}) {
 		debug("error triggered by discarded transport")
 	})
-	socket.pingTimeoutTimer.Stop()
+	if socket.pingTimeoutTimer != nil {
+		socket.pingTimeoutTimer.Stop()
+	}
+	socket.pingTimeoutTimer = nil
 }
 
 func (socket *Socket) setupSendCallback() {
@@ -191,19 +197,51 @@ func (socket *Socket) maybeUpgrade(transport Transport) {
 	debug(fmt.Sprintf("might upgrade socket transport from \"%s\" to \"%s\"",
 		socket.Transport.Name(), transport.Name()))
 
+	upgradeTimeoutTimer := time.AfterFunc(socket.server.upgradeTimeout,
+		func() {
+			debug("client did not complete upgrade - closing tansport")
+			if "open" == transport.readyState() {
+				transport.close(nil)
+			}
+		})
+
 	onPacket := new(funcBag)
 	onPacket.fn = func(pkt *parser.Packet) {
 		if "ping" == pkt.Type && "probe" == string(pkt.Data) {
 			transport.send([]*parser.Packet{&parser.Packet{Type: "pong", Data: []byte("probe")}})
+			socket.checkIntervalTimer.stop()
+			// TODO: set as a parameter
+			socket.checkIntervalTimer = newTicker(100 * time.Millisecond)
+			go func() {
+				for {
+					select {
+					case <-socket.checkIntervalTimer.c:
+						if "polling" == socket.Transport.Name() {
+							socket.Transport.tryWritable(func() {
+								debug("writing a noop packet to polling for fast upgrade")
+								socket.Transport.send([]*parser.Packet{&parser.Packet{Type: "noop"}})
+							}, nil)
+						}
+					case <-socket.checkIntervalTimer.end:
+						return
+					}
+				}
+			}()
 		} else if "upgrade" == pkt.Type && socket.readyState == "open" {
+			upgradeTimeoutTimer.Stop()
 			debug("got upgrade packet - upgrading")
 			socket.upgraded = true
 			socket.clearTransport()
 			socket.setTransport(transport)
 			socket.Emit("upgrade", transport)
 			socket.flush()
+			socket.checkIntervalTimer.stop()
+			socket.checkIntervalTimer = nil
+			socket.upgradeTimeoutTimer.Stop()
 			transport.RemoveListener("packet", onPacket.fn)
 			debug(fmt.Sprintf("upgrade to \"%s\" finishes", transport.Name()))
+		} else {
+			transport.close(nil)
 		}
 	}
 

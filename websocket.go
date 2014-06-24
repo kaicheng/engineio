@@ -11,6 +11,7 @@ type WebSocket struct {
 
 	conn    *websocket.Conn
 	writeCh chan []byte
+	stopCh  chan bool
 }
 
 func NewWebSocketTransport(req *Request) Transport {
@@ -21,6 +22,11 @@ func NewWebSocketTransport(req *Request) Transport {
 
 func websocketReadWorker(ws *WebSocket) {
 	for {
+		select {
+		case <-ws.stopCh:
+			return
+		default:
+		}
 		_, p, err := ws.conn.ReadMessage()
 		debug("websocket received ", string(p))
 		if err != nil {
@@ -44,6 +50,8 @@ func websocketWriteWorker(ws *WebSocket) {
 				debug("websocket: write error", err)
 				return
 			}
+		case <-ws.stopCh:
+			return
 		}
 	}
 }
@@ -71,6 +79,7 @@ func (ws *WebSocket) InitWebSocket(req *Request) {
 	ws.conn = conn
 
 	ws.writeCh = make(chan []byte, 1)
+	ws.stopCh = make(chan bool, 2)
 
 	go websocketReadWorker(ws)
 	go websocketWriteWorker(ws)
@@ -86,8 +95,19 @@ func (ws *WebSocket) send(pkts []*parser.Packet) {
 }
 
 func (ws *WebSocket) tryWritable(fn, def func()) {
+	// FIXME: may block if closed.
 	fn()
 }
 
 func (ws *WebSocket) doClose() {
+	debug("websocket closing")
+	select {
+	case ws.stopCh <- true:
+	default:
+	}
+	select {
+	case ws.stopCh <- true:
+	default:
+	}
+	ws.conn.Close()
 }
