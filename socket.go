@@ -185,7 +185,10 @@ func (socket *Socket) setTransport(transport Transport) {
 	transport.Once("error", socket.OnError)
 	transport.On("packet", socket.onPacket)
 	transport.On("drain", socket.flush)
-	transport.Once("close", func() { socket.onClose("transport close", "") })
+	transport.Once("close", func() {
+		debug("transport on close, closing")
+		socket.onClose("transport close", "")
+	})
 	socket.setupSendCallback()
 }
 
@@ -228,8 +231,9 @@ func (socket *Socket) maybeUpgrade(transport Transport) {
 				}
 			}()
 		} else if "upgrade" == pkt.Type && socket.readyState == "open" {
-			upgradeTimeoutTimer.Stop()
 			debug("got upgrade packet - upgrading")
+			upgradeTimeoutTimer.Stop()
+			transport.RemoveListener("packet", onPacket.fn)
 			socket.upgraded = true
 			socket.clearTransport()
 			socket.setTransport(transport)
@@ -238,7 +242,6 @@ func (socket *Socket) maybeUpgrade(transport Transport) {
 			socket.checkIntervalTimer.stop()
 			socket.checkIntervalTimer = nil
 			socket.upgradeTimeoutTimer.Stop()
-			transport.RemoveListener("packet", onPacket.fn)
 			debug(fmt.Sprintf("upgrade to \"%s\" finishes", transport.Name()))
 		} else {
 			transport.close(nil)
@@ -252,7 +255,7 @@ func (socket *Socket) Close() {
 	if "open" == socket.readyState {
 		socket.readyState = "closing"
 		socket.Transport.close(func() {
-			socket.onClose("froced close", "")
+			socket.onClose("forced close", "")
 		})
 	}
 }

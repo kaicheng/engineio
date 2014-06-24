@@ -28,11 +28,11 @@ func websocketReadWorker(ws *WebSocket) {
 		default:
 		}
 		_, p, err := ws.conn.ReadMessage()
-		debug("websocket received ", string(p))
 		if err != nil {
 			debug("websocket: read error", err)
 			break
 		}
+		debug("websocket received ", string(p))
 		ws.onData(p)
 	}
 }
@@ -83,6 +83,20 @@ func (ws *WebSocket) InitWebSocket(req *Request) {
 
 	go websocketReadWorker(ws)
 	go websocketWriteWorker(ws)
+
+	ws.doClose = func(fn func()) {
+		debug("websocket closing")
+		fn()
+		select {
+		case ws.stopCh <- true:
+		default:
+		}
+		select {
+		case ws.stopCh <- true:
+		default:
+		}
+		ws.conn.Close()
+	}
 }
 
 func (ws *WebSocket) send(pkts []*parser.Packet) {
@@ -97,17 +111,4 @@ func (ws *WebSocket) send(pkts []*parser.Packet) {
 func (ws *WebSocket) tryWritable(fn, def func()) {
 	// FIXME: may block if closed.
 	fn()
-}
-
-func (ws *WebSocket) doClose() {
-	debug("websocket closing")
-	select {
-	case ws.stopCh <- true:
-	default:
-	}
-	select {
-	case ws.stopCh <- true:
-	default:
-	}
-	ws.conn.Close()
 }

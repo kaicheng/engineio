@@ -119,6 +119,12 @@ func main() {
 				expect(reason == "ping timeout", "reason == \"ping timeout\"")
 			})
 		})
+	case "should trigger on server even when there is no outstanding polling request":
+		eio.On("connection", func(socket *engineio.Socket) {
+			socket.On("close", func(reason, desc string) {
+				expect(reason == "ping timeout", "reason is ping timeout")
+			})
+		})
 	case "should trigger when server closes a client":
 		eio.On("connection", func(socket *engineio.Socket) {
 			socket.On("close", func(reason, desc string) {
@@ -132,6 +138,20 @@ func main() {
 		eio.On("connection", func(socket *engineio.Socket) {
 			socket.On("close", func(reason, desc string) {
 				expect(reason == "transport close", "reason == \"transport close\"")
+			})
+		})
+	case "should not trigger with connection: close header":
+		eio.On("connection", func(socket *engineio.Socket) {
+			socket.On("message", func(data []byte) {
+				expect(string(data) == "test", "msg == test")
+				socket.Send([]byte("woot"))
+			})
+		})
+	case "should trigger early with connection `transport close` after missing pong":
+		eio.On("connection", func(socket *engineio.Socket) {
+			socket.On("heartbeat", func() {
+				time.AfterFunc(20*time.Millisecond,
+					func() { socket.Close() })
 			})
 		})
 	case "should arrive from server to client":

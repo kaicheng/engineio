@@ -278,28 +278,18 @@ describe('server', function () {
       });
     });
 
-/*
+    // FIXME: This test doesn't count. We cannot close client while building connection.
     it('should trigger on server even when there is no outstanding polling request (GH-198)', function (done) {
       var opts = { allowUpgrades: false, pingInterval: 500, pingTimeout: 500 };
-      var engine = listen(opts, function (port) {
+      var engine = listen('should trigger on server even when there is no outstanding polling request', opts, function (port) {
         var socket = new eioc.Socket('http://localhost:%d'.s(port));
-        engine.on('connection', function (conn) {
-          conn.on('close', function (reason) {
-            expect(reason).to.be('ping timeout');
-            done();
-          });
-          // client abruptly disconnects, no polling request on this tick since we've just connected
-          socket.sendPacket = socket.onPacket = function (){};
-          socket.close();
-          // then server app tries to close the socket, since client disappeared
-          conn.close();
-        });
+        // client abruptly disconnects, no polling request on this tick since we've just connected
+        socket.sendPacket = socket.onPacket = function (){};
+        socket.close();
+        done();
       });
     });
-*/
 
-// FIXME: This test failed.
-/* Readd all timeout tests in the future.
     it('should trigger on client if server does not meet ping timeout', function (done) {
       var opts = { allowUpgrades: false, pingInterval: 50, pingTimeout: 30 };
       var engine = listen(opts, function (port) {
@@ -317,18 +307,14 @@ describe('server', function () {
 
     it('should trigger on both ends upon ping timeout', function (done) {
       var opts = { allowUpgrades: false, pingTimeout: 10, pingInterval: 10 };
-      var engine = listen(opts, function (port) {
+      var engine = listen('should trigger on server if the client does not pong', opts, function (port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port))
-          , total = 2;
+          , total = 1;
 
         function onClose (reason, err) {
           expect(reason).to.be('ping timeout');
           --total || done();
         }
-
-        engine.on('connection', function (conn) {
-          conn.on('close', onClose);
-        });
 
         socket.on('open', function () {
           // override onPacket to simulate an inactive server after handshake
@@ -337,38 +323,26 @@ describe('server', function () {
         });
       });
     });
-  */
-/*
+
     it('should trigger when server closes a client', function (done) {
       var engine = listen('should trigger when server closes a client', { allowUpgrades: false }, function (port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port))
-          , total = 2;
+          , total = 1;
 
         socket.on('open', function () {
           socket.on('close', function (reason) {
             expect(reason).to.be('transport close');
-            done();
+            --total || done();
           });
         });
       });
     });
 
-    /*
     it('should trigger when server closes a client (ws)', function (done) {
       var opts = { allowUpgrades: false, transports: ['websocket'] };
-      var engine = listen(opts, function (port) {
+      var engine = listen('should trigger when server closes a client', opts, function (port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port), { transports: ['websocket'] })
-          , total = 2;
-
-        engine.on('connection', function (conn) {
-          conn.on('close', function (reason) {
-            expect(reason).to.be('forced close');
-            --total || done();
-          });
-          setTimeout(function () {
-            conn.close();
-          }, 10);
-        });
+          , total = 1;
 
         socket.on('open', function () {
           socket.on('close', function (reason) {
@@ -378,10 +352,9 @@ describe('server', function () {
         });
       });
     });
-*/
-/*
+
     it('should trigger when client closes', function (done) {
-      var engine = listen({ allowUpgrades: false }, function (port) {
+      var engine = listen('should trigger when client closes', { allowUpgrades: false }, function (port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port))
           , total = 2;
 
@@ -398,19 +371,11 @@ describe('server', function () {
       });
     });
 
-/*
     it('should trigger when client closes (ws)', function (done) {
       var opts = { allowUpgrades: false, transports: ['websocket'] };
-      var engine = listen(opts, function (port) {
+      var engine = listen('should trigger when client closes', opts, function (port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port), { transports: ['websocket'] })
-          , total = 2;
-
-        engine.on('connection', function (conn) {
-          conn.on('close', function (reason) {
-            expect(reason).to.be('transport close');
-            --total || done();
-          });
-        });
+          , total = 1;
 
         socket.on('open', function () {
           socket.on('close', function (reason) {
@@ -424,8 +389,8 @@ describe('server', function () {
         });
       });
     });
-*/
-/*
+
+    /* FIXME: callback is not implemented.
     it('should trigger when calling socket.close() in payload', function (done) {
       var engine = listen({ allowUpgrades: false }, function (port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port));
@@ -451,6 +416,7 @@ describe('server', function () {
         });
       });
     });
+*/
 
     it('should abort upgrade if socket is closed (GH-35)', function (done) {
       var engine = listen({ allowUpgrades: true }, function (port) {
@@ -465,6 +431,7 @@ describe('server', function () {
       });
     });
 
+    /* FIXME: client, server cannot share variables.
     it('should trigger if a poll request is ongoing and the underlying ' +
        'socket closes, as in a browser tab close', function ($done) {
       var engine = listen({ allowUpgrades: false }, function (port) {
@@ -519,9 +486,10 @@ describe('server', function () {
         });
       });
     });
+*/
 
     it('should not trigger with connection: close header', function($done){
-      var engine = listen({ allowUpgrades: false }, function(port){
+      var engine = listen('should not trigger with connection: close header', { allowUpgrades: false }, function(port){
         // intercept requests to add connection: close
         var request = http.request;
         http.request = function(){
@@ -535,13 +503,6 @@ describe('server', function () {
           http.request = request;
           $done();
         }
-
-        engine.on('connection', function(socket){
-          socket.on('message', function(msg){
-            expect(msg).to.equal('test');
-            socket.send('woot');
-          });
-        });
 
         var socket = new eioc.Socket('ws://localhost:%d'.s(port));
         socket.on('open', function(){
@@ -579,6 +540,7 @@ describe('server', function () {
       });
     });
 
+    /* FIXME: we cannot modify onPacket
     it('should not trigger early with connection `ping timeout` ' +
        'after post ping timeout', function (done) {
       // ping timeout should trigger after `pingInterval + pingTimeout`,
@@ -606,13 +568,14 @@ describe('server', function () {
         }, 100);
       });
     });
+    */
 
     it('should trigger early with connection `transport close` ' +
        'after missing pong', function (done) {
       // ping timeout should trigger after `pingInterval + pingTimeout`,
       // not just `pingTimeout`.
       var opts = { allowUpgrades: false, pingInterval: 80, pingTimeout: 50 };
-      var engine = listen(opts, function (port) {
+      var engine = listen('should trigger early with connection `transport close` after missing pong', opts, function (port) {
         var socket = new eioc.Socket('ws://localhost:%d'.s(port));
         var clientCloseReason = null;
 
@@ -622,20 +585,14 @@ describe('server', function () {
           });
         });
 
-        engine.on('connection', function(conn){
-          conn.on('heartbeat', function() {
-            setTimeout(function() {
-              conn.close();
-            }, 20);
-            setTimeout(function() {
-              expect(clientCloseReason).to.be('transport close');
-              done();
-            }, 100);
-          });
-        });
+        setTimeout(function() {
+          expect(clientCloseReason).to.be('transport close');
+          done();
+        }, 300);
       });
     });
 
+    /* FIXME: we cannot touch clientCloseReason
     it('should trigger with connection `ping timeout` ' +
        'after `pingInterval + pingTimeout`', function (done) {
       var opts = { allowUpgrades: false, pingInterval: 300, pingTimeout: 100 };
@@ -666,6 +623,7 @@ describe('server', function () {
         });
       });
     });
+*/
 
     // tests https://github.com/LearnBoost/engine.io-client/issues/207
     // websocket test, transport error
@@ -732,7 +690,6 @@ describe('server', function () {
         socket.close();
       });
     });
-*/
   });
   
   describe('messages', function () {
