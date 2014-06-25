@@ -3,7 +3,7 @@ package engineio
 import (
 	"bytes"
 	"fmt"
-	"github.com/kaicheng/goport/engineio/parser"
+	"github.com/kaicheng/engineio/parser"
 	"sync/atomic"
 )
 

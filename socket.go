@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kaicheng/goport/engineio/parser"
-	"github.com/kaicheng/goport/events"
+	"github.com/kaicheng/engineio/parser"
+	"github.com/kaicheng/events"
 )
 
 type Socket struct {

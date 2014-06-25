@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kaicheng/goport/engineio"
-	"github.com/kaicheng/goport/engineio/parser"
+	"github.com/kaicheng/engineio"
+	"github.com/kaicheng/engineio/parser"
 	"net/http"
 	"os"
 	"strconv"
@@ -254,7 +254,6 @@ func main() {
 				}
 			}()
 			socket.On("message", func(msg []byte) {
-				fmt.Println("on.message", string(msg))
 				lastReceived += 1
 				expect(string(msg) == fmt.Sprintf("%d", lastReceived), "msg == lastReceived")
 			})

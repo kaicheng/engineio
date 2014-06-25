@@ -1,8 +1,8 @@
 package engineio
 
 import (
-	"github.com/kaicheng/goport/engineio/parser"
-	"github.com/kaicheng/goport/events"
+	"github.com/kaicheng/engineio/parser"
+	"github.com/kaicheng/events"
 )
 
 type Transport interface {

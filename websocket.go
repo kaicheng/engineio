@@ -2,7 +2,7 @@ package engineio
 
 import (
 	"github.com/gorilla/websocket"
-	"github.com/kaicheng/goport/engineio/parser"
+	"github.com/kaicheng/engineio/parser"
 	"net/http"
 )
 
