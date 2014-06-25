@@ -91,6 +91,7 @@ func (poll *Polling) onPollRequest(req *Request) {
 
 	if poll.shouldClose != nil {
 		poll.tryWritable(func() {
+			debug("triggering empty send to append close packet")
 			poll.send([]*parser.Packet{&noopPkt})
 		}, nil)
 	}

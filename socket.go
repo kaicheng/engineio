@@ -164,7 +164,7 @@ func (socket *Socket) Write(data []byte) {
 func (socket *Socket) flush() {
 	if "closed" != socket.readyState && len(socket.WriteBuffer) > 0 {
 		socket.Transport.tryWritable(func() {
-		    debug("flusing buffer to transport")
+			debug("flusing buffer to transport")
 			socket.Emit("flush", socket.WriteBuffer)
 			socket.server.Emit("flush", socket.WriteBuffer)
 			buf := socket.WriteBuffer
