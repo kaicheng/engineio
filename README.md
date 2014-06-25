@@ -3,7 +3,7 @@ engineio
 
 [engine.io](https://github.com/Automattic/engine.io) in Go.
 
-## Statues
+## Status
 
 Under active developement.
 
@@ -19,7 +19,7 @@ for the document of the original engine.io.
 
 ## API
 
-TODO: Added golang style api document.
+TODO: Add golang style api document.
 
 ## Development
 
