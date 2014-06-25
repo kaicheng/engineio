@@ -38,7 +38,7 @@ exports.listen = function (it, opts, fn) {
 
   var port = getPort()
 
-  child = spawn("go", ["run", "tester.go", port, it, JSON.stringify(opts)], {stdio:[process.stdin, process.stdout, 'pipe']})
+  child = spawn(process.env["GOPATH"] + "/bin/test", [port, it, JSON.stringify(opts)], {stdio:[process.stdin, process.stdout, 'pipe']})
 
   child.stderr.on('data', function (data) {
     s = data.toString()

@@ -44,8 +44,9 @@ npm install
 ## Tests
 
 ```
-cd $GOPATH/src/github.com/kaicheng/engineio
+cd $GOPATH/src/github.com/kaicheng/engineio/test
 npm install
+cd $GOPATH/src/github.com/kaicheng/engineio
 make test
 ```
 
