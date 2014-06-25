@@ -36,13 +36,13 @@ func (xhr *XHR) InitXHR(req *Request) {
 		origin := httpreq.Header.Get("Origin")
 
 		if (len(origin) > 0) {
-			res.Header.Set("Access-Control-Allow-Credentials", "true")
-			res.Header.Set("Access-Control-Allow-Origin", origin)
+			res.Header().Set("Access-Control-Allow-Credentials", "true")
+			res.Header().Set("Access-Control-Allow-Origin", origin)
 		} else {
-			es.Header.Set("Access-Control-Allow-Origin", "*")
+			res.Header().Set("Access-Control-Allow-Origin", "*")
 		}
 
-		xhr.Emit("headers", res)
+		xhr.Emit("headers", res.Header())
 	}
 }
 

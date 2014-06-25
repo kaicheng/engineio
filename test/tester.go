@@ -275,6 +275,7 @@ func main() {
 		return
 	}
 	go server.ListenAndServe()
+	fmt.Fprintln(os.Stderr, "server ready")
 	timer := time.NewTimer(20 * time.Second)
 	<-timer.C
 }

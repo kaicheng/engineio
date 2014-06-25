@@ -38,10 +38,16 @@ exports.listen = function (it, opts, fn) {
 
   var port = getPort()
 
-  child = spawn("go", ["run", "tester.go", port, it, JSON.stringify(opts)], {stdio:'inherit'})
+  child = spawn("go", ["run", "tester.go", port, it, JSON.stringify(opts)], {stdio:[process.stdin, process.stdout, 'pipe']})
 
-  setTimeout(function() {fn(port)}, 2000)
-
+  child.stderr.on('data', function (data) {
+    s = data.toString()
+    if (s.indexOf("server ready") > -1) {
+      fn(port)
+      s = s.replace("server ready", "").trim()
+    }
+    process.stderr.write(s)
+  })
   return null;
 };
 
