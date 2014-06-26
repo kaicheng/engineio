@@ -3,6 +3,7 @@ package engineio
 import (
 	"encoding/json"
 	"fmt"
+    "sync"
 	"time"
 
 	"github.com/kaicheng/engineio/parser"
@@ -24,6 +25,9 @@ type Socket struct {
 	checkIntervalTimer  *ticker
 	upgradeTimeoutTimer *time.Timer
 	pingTimeoutTimer    *time.Timer
+
+    timerLock   sync.Mutex
+    readyStateLock sync.Mutex
 }
 
 func newSocket(id string, srv *Server, transport Transport, req *Request) *Socket {
@@ -59,6 +63,7 @@ func (socket *Socket) onOpen() {
 
 func (socket *Socket) onClose(reason, desc string) {
 	if "closed" != socket.readyState {
+        socket.timerLock.Lock()
 		if socket.pingTimeoutTimer != nil {
 			socket.pingTimeoutTimer.Stop()
 		}
@@ -71,6 +76,7 @@ func (socket *Socket) onClose(reason, desc string) {
 			socket.upgradeTimeoutTimer.Stop()
 		}
 		socket.upgradeTimeoutTimer = nil
+        socket.timerLock.Unlock()
 		socket.clearTransport()
 		socket.readyState = "closed"
 		socket.Emit("close", reason, desc)
@@ -128,6 +134,8 @@ func (socket *Socket) OnError(err string) {
 }
 
 func (socket *Socket) setPingTimeout() {
+    socket.timerLock.Lock()
+    defer socket.timerLock.Unlock()
 	if socket.pingTimeoutTimer != nil {
 		socket.pingTimeoutTimer.Stop()
 	}
@@ -140,6 +148,8 @@ func (socket *Socket) clearTransport() {
 	socket.Transport.On("error", func(arg interface{}) {
 		debug("error triggered by discarded transport")
 	})
+    socket.timerLock.Lock()
+    defer socket.timerLock.Unlock()
 	if socket.pingTimeoutTimer != nil {
 		socket.pingTimeoutTimer.Stop()
 	}
@@ -212,9 +222,11 @@ func (socket *Socket) maybeUpgrade(transport Transport) {
 	onPacket.fn = func(pkt *parser.Packet) {
 		if "ping" == pkt.Type && "probe" == string(pkt.Data) {
 			transport.send([]*parser.Packet{&parser.Packet{Type: "pong", Data: []byte("probe")}})
+            socket.timerLock.Lock()
 			socket.checkIntervalTimer.stop()
 			// TODO: set as a parameter
 			socket.checkIntervalTimer = newTicker(100 * time.Millisecond)
+            socket.timerLock.Unlock()
 			go func() {
 				for {
 					select {
@@ -239,6 +251,8 @@ func (socket *Socket) maybeUpgrade(transport Transport) {
 			socket.setTransport(transport)
 			socket.Emit("upgrade", transport)
 			socket.flush()
+            socket.timerLock.Lock()
+            socket.timerLock.Unlock()
 			socket.checkIntervalTimer.stop()
 			socket.checkIntervalTimer = nil
 			socket.upgradeTimeoutTimer.Stop()
