@@ -7,6 +7,6 @@ test:
 		--reporter $(REPORTER) \
 		--timeout 10s \
 		--bail \
-		$(TESTS)
+		$(FILTER) $(TESTS)
 
 .PHONY: test

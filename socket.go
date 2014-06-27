@@ -210,23 +210,27 @@ func (socket *Socket) maybeUpgrade(transport Transport) {
 	debug(fmt.Sprintf("might upgrade socket transport from \"%s\" to \"%s\"",
 		socket.Transport.Name(), transport.Name()))
 
-	upgradeTimeoutTimer := time.AfterFunc(socket.server.upgradeTimeout,
+    socket.timerLock.Lock()
+	socket.upgradeTimeoutTimer = time.AfterFunc(socket.server.upgradeTimeout,
 		func() {
 			debug("client did not complete upgrade - closing tansport")
 			if "open" == transport.readyState() {
 				transport.close(nil)
 			}
 		})
+    socket.timerLock.Unlock()
 
 	onPacket := new(funcBag)
 	onPacket.fn = func(pkt *parser.Packet) {
+        debug("onpacket", pkt.Type, socket.readyState)
 		if "ping" == pkt.Type && "probe" == string(pkt.Data) {
 			transport.send([]*parser.Packet{&parser.Packet{Type: "pong", Data: []byte("probe")}})
             socket.timerLock.Lock()
-			socket.checkIntervalTimer.stop()
+            if socket.checkIntervalTimer != nil {
+			    socket.checkIntervalTimer.stop()
+            }
 			// TODO: set as a parameter
 			socket.checkIntervalTimer = newTicker(100 * time.Millisecond)
-            socket.timerLock.Unlock()
 			go func() {
 				for {
 					select {
@@ -242,9 +246,12 @@ func (socket *Socket) maybeUpgrade(transport Transport) {
 					}
 				}
 			}()
+            socket.timerLock.Unlock()
 		} else if "upgrade" == pkt.Type && socket.readyState == "open" {
 			debug("got upgrade packet - upgrading")
-			upgradeTimeoutTimer.Stop()
+            socket.timerLock.Lock()
+			socket.upgradeTimeoutTimer.Stop()
+            socket.timerLock.Unlock()
 			transport.RemoveListener("packet", onPacket.fn)
 			socket.upgraded = true
 			socket.clearTransport()
@@ -252,18 +259,19 @@ func (socket *Socket) maybeUpgrade(transport Transport) {
 			socket.Emit("upgrade", transport)
 			socket.flush()
             socket.timerLock.Lock()
-            socket.timerLock.Unlock()
 			socket.checkIntervalTimer.stop()
 			socket.checkIntervalTimer = nil
-			socket.upgradeTimeoutTimer.Stop()
+            socket.timerLock.Unlock()
 			debug(fmt.Sprintf("upgrade to \"%s\" finishes", transport.Name()))
 		} else {
+            debug("invalid packet during upgrade")
 			transport.close(nil)
 		}
 	}
 
 	transport.On("packet", onPacket.fn)
 }
+
 
 func (socket *Socket) Close() {
 	if "open" == socket.readyState {
