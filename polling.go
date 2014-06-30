@@ -24,9 +24,15 @@ type Polling struct {
 }
 
 func NewPollingTransport(req *Request) Transport {
-	xhr := new(XHR)
-	xhr.InitXHR(req)
-	return xhr
+	if len(req.Query.Get("j")) > 0 {
+		jsonp := new(JSONP)
+		jsonp.InitJSONP(req)
+		return jsonp
+	} else {
+		xhr := new(XHR)
+		xhr.InitXHR(req)
+		return xhr
+	}
 }
 
 func (poll *Polling) InitPolling(req *Request) {
