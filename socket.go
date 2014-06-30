@@ -231,21 +231,21 @@ func (socket *Socket) maybeUpgrade(transport Transport) {
             }
 			// TODO: set as a parameter
 			socket.checkIntervalTimer = newTicker(100 * time.Millisecond)
-			go func() {
+			go func(c <-chan time.Time, end <-chan bool) {
 				for {
 					select {
-					case <-socket.checkIntervalTimer.c:
+					case <-c:
 						if "polling" == socket.Transport.Name() {
 							socket.Transport.tryWritable(func() {
 								debug("writing a noop packet to polling for fast upgrade")
 								socket.Transport.send([]*parser.Packet{&parser.Packet{Type: "noop"}})
 							}, nil)
 						}
-					case <-socket.checkIntervalTimer.end:
+					case <-end:
 						return
 					}
 				}
-			}()
+			}(socket.checkIntervalTimer.c, socket.checkIntervalTimer.end)
             socket.timerLock.Unlock()
 		} else if "upgrade" == pkt.Type && socket.readyState == "open" {
 			debug("got upgrade packet - upgrading")

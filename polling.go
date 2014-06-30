@@ -43,6 +43,10 @@ func (poll *Polling) InitPolling(req *Request) {
 				poll.shouldClose = fn
 			})
 	}
+
+	poll.readyCh = make(chan bool, 1)
+	poll.writeCh = make(chan []byte, 1)
+
 }
 
 func (poll *Polling) onRequest(req *Request) {
@@ -79,13 +83,15 @@ func (poll *Polling) onPollRequest(req *Request) {
 		res.WriteHeader(500)
 		return
 	}
+	defer atomic.StoreInt32(&poll.reqGuard, 0)
 	debug("setting request")
 
-	poll.readyCh = make(chan bool, 1)
-	poll.writeCh = make(chan []byte, 1)
 	timeout := make(chan bool, 1)
 
-	poll.readyCh <- true
+	select {
+	case poll.readyCh <- true:
+	default:
+	}
 
 	poll.Emit("drain")
 
@@ -102,13 +108,12 @@ func (poll *Polling) onPollRequest(req *Request) {
 	case <-timeout:
 	}
 	poll.doWrite(req, data)
-	close(poll.readyCh)
-	close(poll.writeCh)
 	close(timeout)
-	poll.readyCh = nil
-	poll.writeCh = nil
 
-	atomic.StoreInt32(&poll.reqGuard, 0)
+	select {
+	case <-poll.readyCh:
+	default:
+	}
 }
 
 func (poll *Polling) onDataRequest(req *Request) {
@@ -120,6 +125,7 @@ func (poll *Polling) onDataRequest(req *Request) {
 		res.WriteHeader(500)
 		return
 	}
+	defer atomic.StoreInt32(&poll.dataGuard, 0)
 
 	chunks := new(bytes.Buffer)
 	buffer := make([]byte, 4096)
@@ -145,8 +151,6 @@ func (poll *Polling) onDataRequest(req *Request) {
 	poll.headers(req)
 	res.WriteHeader(200)
 	res.Write([]byte("ok"))
-
-	atomic.StoreInt32(&poll.dataGuard, 0)
 }
 
 func (poll *Polling) onData(data []byte) {
