@@ -21,14 +21,15 @@ type Socket struct {
 	Transport  Transport
 
 	writeBuffer []*parser.Packet
-	bufferLock  sync.Mutex
 
 	checkIntervalTimer  *ticker
 	upgradeTimeoutTimer *time.Timer
 	pingTimeoutTimer    *time.Timer
 
+	bufferLock     sync.Mutex
 	timerLock      sync.Mutex
 	readyStateLock sync.Mutex
+	transportLock  sync.Mutex
 }
 
 func newSocket(id string, srv *Server, transport Transport, req *Request) *Socket {
@@ -61,9 +62,15 @@ func (socket *Socket) SetWriteBuffer(buf []*parser.Packet) {
 	socket.writeBuffer = buf
 }
 
+func (socket *Socket) getTransport() Transport {
+	socket.transportLock.Lock()
+	defer socket.transportLock.Unlock()
+	return socket.Transport
+}
+
 func (socket *Socket) onOpen() {
 	socket.readyState = "open"
-	socket.Transport.setSid(socket.id)
+	socket.getTransport().setSid(socket.id)
 	pingInterval := (int64)(socket.server.pingInterval / time.Millisecond)
 	pingTimeout := (int64)(socket.server.pingTimeout / time.Millisecond)
 	upgrades, _ := json.Marshal(socket.getAvailableUpgrades())
@@ -75,6 +82,7 @@ func (socket *Socket) onOpen() {
 }
 
 func (socket *Socket) onClose(reason, desc string) {
+	socket.readyStateLock.Lock()
 	if "closed" != socket.readyState {
 		socket.timerLock.Lock()
 		if socket.pingTimeoutTimer != nil {
@@ -92,16 +100,21 @@ func (socket *Socket) onClose(reason, desc string) {
 		socket.timerLock.Unlock()
 		socket.clearTransport()
 		socket.readyState = "closed"
+		socket.readyStateLock.Unlock()
 		socket.Emit("close", reason, desc)
 		socket.bufferLock.Lock()
 		socket.writeBuffer = socket.writeBuffer[0:0]
 		socket.bufferLock.Unlock()
-
+	} else {
+		socket.readyStateLock.Unlock()
 	}
 }
 
 func (socket *Socket) sendPacket(strType string, data []byte) {
-	if "closing" != socket.readyState {
+	socket.readyStateLock.Lock()
+	state := socket.readyState
+	socket.readyStateLock.Unlock()
+	if "closing" != state {
 		debug(fmt.Sprintf("sending packet \"%s\" (\"%s\")", strType, string(data)))
 		packet := &parser.Packet{Type: strType, Data: data}
 		socket.Emit("packetCreate", packet)
@@ -113,7 +126,10 @@ func (socket *Socket) sendPacket(strType string, data []byte) {
 }
 
 func (socket *Socket) sendBinPacket(strType string, data []byte) {
-	if "closing" != socket.readyState {
+	socket.readyStateLock.Lock()
+	state := socket.readyState
+	socket.readyStateLock.Unlock()
+	if "closing" != state {
 		debug(fmt.Sprintf("sending packet \"%s\" (\"%s\")", strType, string(data)))
 		packet := &parser.Packet{Type: strType, Data: data, IsBin: true}
 		socket.Emit("packetCreate", packet)
@@ -125,7 +141,11 @@ func (socket *Socket) sendBinPacket(strType string, data []byte) {
 }
 
 func (socket *Socket) onPacket(packet *parser.Packet) {
-	if "open" == socket.readyState {
+	socket.readyStateLock.Lock()
+	state := socket.readyState
+	socket.readyStateLock.Unlock()
+
+	if "open" == state {
 		debug("packet ", packet.Type)
 		debug("packet.Data", string(packet.Data))
 		socket.Emit("packet", packet)
@@ -165,7 +185,7 @@ func (socket *Socket) setPingTimeout() {
 }
 
 func (socket *Socket) clearTransport() {
-	socket.Transport.On("error", func(arg interface{}) {
+	socket.getTransport().On("error", func(arg interface{}) {
 		debug("error triggered by discarded transport")
 	})
 	socket.timerLock.Lock()
@@ -192,10 +212,14 @@ func (socket *Socket) Write(data []byte) {
 }
 
 func (socket *Socket) flush() {
+	socket.readyStateLock.Lock()
+	state := socket.readyState
+	socket.readyStateLock.Unlock()
 	socket.bufferLock.Lock()
-	if "closed" != socket.readyState && len(socket.writeBuffer) > 0 {
+	if "closed" != state && len(socket.writeBuffer) > 0 {
 		socket.bufferLock.Unlock()
-		socket.Transport.tryWritable(func() {
+		trans := socket.getTransport()
+		trans.tryWritable(func() {
 			debug("flusing buffer to transport")
 			socket.bufferLock.Lock()
 			buf := socket.writeBuffer
@@ -203,7 +227,7 @@ func (socket *Socket) flush() {
 			socket.bufferLock.Unlock()
 			socket.Emit("flush", buf)
 			socket.server.Emit("flush", buf)
-			socket.Transport.send(buf)
+			trans.send(buf)
 			socket.Emit("drain")
 			socket.server.Emit("drain", socket)
 		}, nil)
@@ -217,7 +241,9 @@ func (socket *Socket) getAvailableUpgrades() []string {
 }
 
 func (socket *Socket) setTransport(transport Transport) {
+	socket.transportLock.Lock()
 	socket.Transport = transport
+	socket.transportLock.Unlock()
 	transport.Once("error", socket.OnError)
 	transport.On("packet", socket.onPacket)
 	transport.On("drain", socket.flush)
@@ -234,7 +260,7 @@ type funcBag struct {
 
 func (socket *Socket) maybeUpgrade(transport Transport) {
 	debug(fmt.Sprintf("might upgrade socket transport from \"%s\" to \"%s\"",
-		socket.Transport.Name(), transport.Name()))
+		socket.getTransport().Name(), transport.Name()))
 
 	socket.timerLock.Lock()
 	socket.upgradeTimeoutTimer = time.AfterFunc(socket.server.upgradeTimeout,
@@ -248,7 +274,6 @@ func (socket *Socket) maybeUpgrade(transport Transport) {
 
 	onPacket := new(funcBag)
 	onPacket.fn = func(pkt *parser.Packet) {
-		debug("onpacket", pkt.Type, socket.readyState)
 		if "ping" == pkt.Type && "probe" == string(pkt.Data) {
 			transport.send([]*parser.Packet{&parser.Packet{Type: "pong", Data: []byte("probe")}})
 			socket.timerLock.Lock()
@@ -261,10 +286,11 @@ func (socket *Socket) maybeUpgrade(transport Transport) {
 				for {
 					select {
 					case <-c:
-						if "polling" == socket.Transport.Name() {
-							socket.Transport.tryWritable(func() {
+						trans := socket.getTransport()
+						if "polling" == trans.Name() {
+							trans.tryWritable(func() {
 								debug("writing a noop packet to polling for fast upgrade")
-								socket.Transport.send([]*parser.Packet{&parser.Packet{Type: "noop"}})
+								trans.send([]*parser.Packet{&parser.Packet{Type: "noop"}})
 							}, nil)
 						}
 					case <-end:
@@ -273,22 +299,27 @@ func (socket *Socket) maybeUpgrade(transport Transport) {
 				}
 			}(socket.checkIntervalTimer.c, socket.checkIntervalTimer.end)
 			socket.timerLock.Unlock()
-		} else if "upgrade" == pkt.Type && socket.readyState == "open" {
-			debug("got upgrade packet - upgrading")
-			socket.timerLock.Lock()
-			socket.upgradeTimeoutTimer.Stop()
-			socket.timerLock.Unlock()
-			transport.RemoveListener("packet", onPacket.fn)
-			socket.upgraded = true
-			socket.clearTransport()
-			socket.setTransport(transport)
-			socket.Emit("upgrade", transport)
-			socket.flush()
-			socket.timerLock.Lock()
-			socket.checkIntervalTimer.stop()
-			socket.checkIntervalTimer = nil
-			socket.timerLock.Unlock()
-			debug(fmt.Sprintf("upgrade to \"%s\" finishes", transport.Name()))
+		} else if "upgrade" == pkt.Type {
+			socket.readyStateLock.Lock()
+			state := socket.readyState
+			socket.readyStateLock.Unlock()
+			if state == "open" {
+				debug("got upgrade packet - upgrading")
+				socket.timerLock.Lock()
+				socket.upgradeTimeoutTimer.Stop()
+				socket.timerLock.Unlock()
+				transport.RemoveListener("packet", onPacket.fn)
+				socket.upgraded = true
+				socket.clearTransport()
+				socket.setTransport(transport)
+				socket.Emit("upgrade", transport)
+				socket.flush()
+				socket.timerLock.Lock()
+				socket.checkIntervalTimer.stop()
+				socket.checkIntervalTimer = nil
+				socket.timerLock.Unlock()
+				debug(fmt.Sprintf("upgrade to \"%s\" finishes", transport.Name()))
+			}
 		} else {
 			debug("invalid packet during upgrade")
 			transport.close(nil)
@@ -299,10 +330,14 @@ func (socket *Socket) maybeUpgrade(transport Transport) {
 }
 
 func (socket *Socket) Close() {
+	socket.readyStateLock.Lock()
 	if "open" == socket.readyState {
 		socket.readyState = "closing"
-		socket.Transport.close(func() {
+		socket.readyStateLock.Unlock()
+		socket.getTransport().close(func() {
 			socket.onClose("forced close", "")
 		})
+	} else {
+		socket.readyStateLock.Unlock()
 	}
 }
