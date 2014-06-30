@@ -14,7 +14,7 @@ func (xhr *XHR) InitXHR(req *Request) {
 	xhr.Polling.doWrite = func(req *Request, data []byte) {
 		debug(fmt.Sprintf("xhr writing \"%s\"", string(data)))
 		contentType := "text/plains; charset=UTF-8"
-		if (data[0] < 20) {
+		if data[0] < 20 {
 			contentType = "application/octet-stream"
 		}
 		contentLength := fmt.Sprintf("%d", len(data))
@@ -35,7 +35,7 @@ func (xhr *XHR) InitXHR(req *Request) {
 
 		origin := httpreq.Header.Get("Origin")
 
-		if (len(origin) > 0) {
+		if len(origin) > 0 {
 			res.Header().Set("Access-Control-Allow-Credentials", "true")
 			res.Header().Set("Access-Control-Allow-Origin", origin)
 		} else {

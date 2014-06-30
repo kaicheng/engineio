@@ -105,12 +105,12 @@ func main() {
 	case "should be able to access non-empty writeBuffer at closing (server)":
 		eio.On("connection", func(socket *engineio.Socket) {
 			socket.On("close", func(reason, desc string) {
-				expect(len(socket.WriteBuffer) == 1, "len(socket.WriteBuffer) == 1")
+				expect(len(socket.WriteBuffer()) == 1, "len(socket.WriteBuffer) == 1")
 				time.AfterFunc(10*time.Millisecond, func() {
-					expect(len(socket.WriteBuffer) == 0, "len(socket.WriteBuffer) == 0")
+					expect(len(socket.WriteBuffer()) == 0, "len(socket.WriteBuffer) == 0")
 				})
 			})
-			socket.WriteBuffer = append(socket.WriteBuffer, &parser.Packet{Type: "message", Data: []byte("foo")})
+			socket.SetWriteBuffer(append(socket.WriteBuffer(), &parser.Packet{Type: "message", Data: []byte("foo")}))
 			socket.OnError("")
 		})
 	case "should trigger on server if the client does not pong":
