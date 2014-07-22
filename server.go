@@ -80,7 +80,6 @@ func valueOrDefault(m Options, key string, def interface{}) interface{} {
 
 func NewServer(opts Options) (srv *Server) {
 	srv = new(Server)
-	srv.InitEventEmitter()
 
 	srv.Clients = make(map[string]*Socket)
 	srv.clientsCount = 0
@@ -209,7 +208,6 @@ func (srv *Server) getTransport(name string, req *Request) Transport {
 func (srv *Server) ServeHTTP(res http.ResponseWriter, httpreq *http.Request) {
 	debug(fmt.Sprintf("handling \"%s\" http request \"%s\"", httpreq.Method, httpreq.RequestURI))
 	req := new(Request)
-	req.InitEventEmitter()
 	req.httpReq = httpreq
 	req.Query = httpreq.URL.Query()
 	req.res = res

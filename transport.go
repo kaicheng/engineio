@@ -51,7 +51,6 @@ type TransportBase struct {
 }
 
 func (trans *TransportBase) initTransportBase(req *Request) {
-	trans.InitEventEmitter()
 	trans.transReadyState = "opening"
 	trans.doClose = func(func()) {}
 }

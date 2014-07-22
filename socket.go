@@ -34,7 +34,6 @@ type Socket struct {
 
 func newSocket(id string, srv *Server, transport Transport, req *Request) *Socket {
 	socket := new(Socket)
-	socket.InitEventEmitter()
 
 	socket.id = id
 	socket.server = srv
